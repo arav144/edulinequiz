@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 
-let isConnected = false;
+// Cache the connection promise itself (not just a boolean) so that
+// multiple concurrent requests in a serverless invocation all await
+// the SAME in-flight connection attempt instead of racing each other.
+let connectionPromise = null;
 
 const connectDB = async () => {
   const uri = process.env.MONGODB_URI;
@@ -9,24 +12,31 @@ const connectDB = async () => {
     throw new Error('FATAL: MONGODB_URI is not configured in environment variables.');
   }
 
-  if (isConnected && mongoose.connection.readyState === 1) {
+  if (mongoose.connection.readyState === 1) {
     return true;
   }
 
-  try {
-    const conn = await mongoose.connect(uri, {
-      bufferCommands: false,
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 8000,
-    });
-
-    isConnected = conn.connections[0].readyState === 1;
-    console.log(`✅ MongoDB Atlas Connected: ${conn.connection.host}`);
-    return true;
-  } catch (error) {
-    console.error(`❌ MongoDB Atlas connection failed: ${error.message}`);
-    throw error;
+  if (!connectionPromise) {
+    connectionPromise = mongoose
+      .connect(uri, {
+        bufferCommands: false,
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 8000,
+      })
+      .then((conn) => {
+        console.log(`✅ MongoDB Atlas Connected: ${conn.connection.host}`);
+        return true;
+      })
+      .catch((error) => {
+        console.error(`❌ MongoDB Atlas connection failed: ${error.message}`);
+        // Reset so the NEXT request can retry instead of being stuck
+        // forever on a rejected cached promise.
+        connectionPromise = null;
+        throw error;
+      });
   }
+
+  return connectionPromise;
 };
 
 module.exports = connectDB;
