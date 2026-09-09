@@ -47,14 +47,18 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// All routes now live under a router, which we mount at /api/backend below.
+// This matches the "/api/backend/*" prefix that Vercel's rewrite forwards.
+const router = express.Router();
+
 // Serve Admin Panel (static SPA bundled with backend)
-app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
-app.get('/admin/*', (req, res) => {
+router.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
+router.get('/admin/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
 // Health Diagnostics Endpoint
-app.get('/api/health', (req, res) => {
+router.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     message: 'Quiz System Backend REST API is live and operational.',
@@ -64,20 +68,23 @@ app.get('/api/health', (req, res) => {
 });
 
 // Mount Routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/subjects', require('./routes/subjectRoutes'));
-app.use('/api/quizzes', require('./routes/quizRoutes'));
-app.use('/api/admin', require('./routes/adminRoutes'));
-app.use('/api/admin/upload', require('./routes/uploadRoutes'));
-app.use('/api/results', require('./routes/resultRoutes'));
+router.use('/api/auth', require('./routes/authRoutes'));
+router.use('/api/subjects', require('./routes/subjectRoutes'));
+router.use('/api/quizzes', require('./routes/quizRoutes'));
+router.use('/api/admin', require('./routes/adminRoutes'));
+router.use('/api/admin/upload', require('./routes/uploadRoutes'));
+router.use('/api/results', require('./routes/resultRoutes'));
 
 // 404 Handler for undefined API routes
-app.use('/api/*', (req, res) => {
+router.use('/api/*', (req, res) => {
   res.status(404).json({
     success: false,
     message: `API Route Not Found: ${req.method} ${req.originalUrl}`,
   });
 });
+
+// Mount everything under /api/backend to match Vercel's service rewrite
+app.use('/api/backend', router);
 
 // Centralized Error Handling Middleware
 app.use(errorHandler);
@@ -88,10 +95,10 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`================================================================`);
     console.log(`🚀 Quiz System Backend Server running on port ${PORT}`);
-    console.log(`🌍 API Health Check : http://localhost:${PORT}/api/health`);
-    console.log(`🔐 Admin Application: http://localhost:${PORT}/admin`);
-    console.log(`📚 Subjects API    : http://localhost:${PORT}/api/subjects`);
-    console.log(`📊 Admin Stats     : http://localhost:${PORT}/api/admin/stats`);
+    console.log(`🌍 API Health Check : http://localhost:${PORT}/api/backend/api/health`);
+    console.log(`🔐 Admin Application: http://localhost:${PORT}/api/backend/admin`);
+    console.log(`📚 Subjects API    : http://localhost:${PORT}/api/backend/api/subjects`);
+    console.log(`📊 Admin Stats     : http://localhost:${PORT}/api/backend/api/admin/stats`);
     console.log(`================================================================`);
   });
 }
