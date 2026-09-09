@@ -14,6 +14,18 @@ const Quiz = require('../models/Quiz');
 const Student = require('../models/Student');
 const Subject = require('../models/Subject');
 
+// Helper to safely convert local image files into base64 Data URLs so standalone PDFKit
+// doesn't invoke internal fs.readFileSync (which is stubbed out in standalone builds).
+function toImageSource(filePath) {
+  if (fs.existsSync(filePath)) {
+    const ext = path.extname(filePath).toLowerCase();
+    const mime = ext === '.png' ? 'image/png' : 'image/jpeg';
+    const buf = fs.readFileSync(filePath);
+    return `data:${mime};base64,${buf.toString('base64')}`;
+  }
+  return null;
+}
+
 // ─── Helper: Resolve attempt + quiz + student ────────────────────────────────
 async function resolveAttempt(attemptId) {
   const attempt = await Attempt.findById(attemptId).lean();
@@ -243,8 +255,10 @@ const downloadCertificatePdf = async (req, res, next) => {
       try {
         const regBuf = fs.readFileSync(fontRegularPath);
         const boldBuf = fs.readFileSync(fontBoldPath);
-        doc.registerFont('CustomFont', regBuf);
-        doc.registerFont('CustomFont-Bold', boldBuf);
+        const arrayReg = regBuf.buffer.slice(regBuf.byteOffset, regBuf.byteOffset + regBuf.byteLength);
+        const arrayBold = boldBuf.buffer.slice(boldBuf.byteOffset, boldBuf.byteOffset + boldBuf.byteLength);
+        doc.registerFont('CustomFont', arrayReg);
+        doc.registerFont('CustomFont-Bold', arrayBold);
       } catch (fontErr) {
         console.warn('Failed to load custom fonts, defaulting to standard Helvetica:', fontErr);
       }
@@ -255,8 +269,9 @@ const downloadCertificatePdf = async (req, res, next) => {
 
     // ─── 1. Certificate Frame Background ──────────────────────────────────────
     const framePdfPath = path.join(__dirname, '../assets/certificate_framepdf.jpeg');
-    if (fs.existsSync(framePdfPath)) {
-      doc.image(framePdfPath, 0, 0, { width: W, height: H });
+    const framePdfSrc = toImageSource(framePdfPath);
+    if (framePdfSrc) {
+      doc.image(framePdfSrc, 0, 0, { width: W, height: H });
 
       // Dynamic typed values overlaid on exact underlines of certificate_framepdf.jpeg:
       // 1. Candidate Name (Centered)
@@ -301,8 +316,9 @@ const downloadCertificatePdf = async (req, res, next) => {
     }
 
     const framePath = path.join(__dirname, '../assets/certificate_frame.jpg');
-    if (fs.existsSync(framePath)) {
-      doc.image(framePath, 0, 0, { width: W, height: H });
+    const frameSrc = toImageSource(framePath);
+    if (frameSrc) {
+      doc.image(frameSrc, 0, 0, { width: W, height: H });
     } else {
       doc.rect(0, 0, W, H).fill('#FDFBF7');
       doc.rect(20, 20, W - 40, H - 40).lineWidth(4).strokeColor('#C59B27').stroke();
@@ -311,8 +327,9 @@ const downloadCertificatePdf = async (req, res, next) => {
 
     // ─── 2. Logo Header (Matches Reference Image) ──────────────────────────────
     const logoPath = path.join(__dirname, '../assets/logo-eduline-publishers.png');
-    if (fs.existsSync(logoPath)) {
-      doc.image(logoPath, (W - 190) / 2, 42, { width: 190 });
+    const logoSrc = toImageSource(logoPath);
+    if (logoSrc) {
+      doc.image(logoSrc, (W - 190) / 2, 42, { width: 190 });
     } else {
       doc.fillColor('#1E3A8A').fontSize(22).font('Helvetica-Bold')
         .text('Eduline Publishers', 0, 45, { align: 'center', width: W });
