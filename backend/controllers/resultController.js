@@ -1,4 +1,12 @@
-const PDFDocument = require('pdfkit');
+// Use the bundled standalone PDFKit distribution so all 14 standard PDF fonts (including Helvetica,
+// Helvetica-Bold) are embedded directly in JS code. This eliminates the "Cannot find module .../Helvetica.cjs"
+// error on serverless hosting platforms like Vercel.
+let PDFDocument;
+try {
+  PDFDocument = require('pdfkit/js/pdfkit.standalone');
+} catch (e) {
+  PDFDocument = require('pdfkit');
+}
 const fs = require('fs');
 const path = require('path');
 const Attempt = require('../models/Attempt');
@@ -232,8 +240,14 @@ const downloadCertificatePdf = async (req, res, next) => {
     const hasIndicFont = fs.existsSync(fontRegularPath) && fs.existsSync(fontBoldPath);
 
     if (hasIndicFont) {
-      doc.registerFont('CustomFont', fontRegularPath);
-      doc.registerFont('CustomFont-Bold', fontBoldPath);
+      try {
+        const regBuf = fs.readFileSync(fontRegularPath);
+        const boldBuf = fs.readFileSync(fontBoldPath);
+        doc.registerFont('CustomFont', regBuf);
+        doc.registerFont('CustomFont-Bold', boldBuf);
+      } catch (fontErr) {
+        console.warn('Failed to load custom fonts, defaulting to standard Helvetica:', fontErr);
+      }
     }
 
     const fRegular = hasIndicFont ? 'CustomFont' : 'Helvetica';
