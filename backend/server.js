@@ -11,11 +11,6 @@ dotenv.config();
 // Initialize Express App
 const app = express();
 
-// Connect to MongoDB Atlas
-connectDB().catch((err) => {
-  console.error('Fatal database initialization error:', err.message);
-});
-
 // Configure CORS
 const allowedOrigins = [
   process.env.FRONTEND_URL,
@@ -47,6 +42,21 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Ensure MongoDB is connected BEFORE any route handler runs a query.
+// This is what actually fixes "Cannot call findOne() before initial
+// connection is complete" on serverless platforms like Vercel.
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Database connection failed. Please try again shortly.',
+    });
+  }
+});
+
 // Serve Admin Panel (static SPA bundled with backend) at root-relative /admin.
 // vercel.json forwards "/admin/*" straight to this service.
 app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
@@ -64,9 +74,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Mount Routes — kept at their original root-relative paths because the
-// bundled admin panel JS calls them as /api/auth/login, /api/admin/... etc.
-// vercel.json forwards all "/api/*" traffic straight to this service.
+// Mount Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/subjects', require('./routes/subjectRoutes'));
 app.use('/api/quizzes', require('./routes/quizRoutes'));
@@ -88,6 +96,9 @@ app.use(errorHandler);
 // Start Server
 const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  connectDB().catch((err) => {
+    console.error('Fatal database initialization error:', err.message);
+  });
   app.listen(PORT, () => {
     console.log(`================================================================`);
     console.log(`🚀 Quiz System Backend Server running on port ${PORT}`);
