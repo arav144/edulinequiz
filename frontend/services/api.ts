@@ -4,8 +4,20 @@
  */
 
 const getApiBaseUrl = (): string => {
-  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-  return url.replace(/\/+$/, '');
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl.trim() !== '') {
+    return envUrl.trim().replace(/\/+$/, '');
+  }
+  // In the browser
+  if (typeof window !== 'undefined') {
+    // Local development
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000';
+    }
+    // On Vercel / Production: Use relative URL so it calls /api/ on current origin
+    return '';
+  }
+  return 'http://localhost:5000';
 };
 
 async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
