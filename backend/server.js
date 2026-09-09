@@ -47,21 +47,15 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Admin Panel stays at root-relative /admin (its built HTML/CSS/JS reference
-// asset paths like /admin/assets/... directly, so it must NOT sit behind the
-// /api/backend prefix). A matching vercel.json rewrite forwards "/admin/*"
-// straight to this backend service.
+// Serve Admin Panel (static SPA bundled with backend) at root-relative /admin.
+// vercel.json forwards "/admin/*" straight to this service.
 app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
 app.get('/admin/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
-// Everything else (real API routes) lives under a router mounted at
-// /api/backend, matching Vercel's default multi-service rewrite prefix.
-const router = express.Router();
-
 // Health Diagnostics Endpoint
-router.get('/api/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     message: 'Quiz System Backend REST API is live and operational.',
@@ -70,24 +64,23 @@ router.get('/api/health', (req, res) => {
   });
 });
 
-// Mount Routes
-router.use('/api/auth', require('./routes/authRoutes'));
-router.use('/api/subjects', require('./routes/subjectRoutes'));
-router.use('/api/quizzes', require('./routes/quizRoutes'));
-router.use('/api/admin', require('./routes/adminRoutes'));
-router.use('/api/admin/upload', require('./routes/uploadRoutes'));
-router.use('/api/results', require('./routes/resultRoutes'));
+// Mount Routes — kept at their original root-relative paths because the
+// bundled admin panel JS calls them as /api/auth/login, /api/admin/... etc.
+// vercel.json forwards all "/api/*" traffic straight to this service.
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/subjects', require('./routes/subjectRoutes'));
+app.use('/api/quizzes', require('./routes/quizRoutes'));
+app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/admin/upload', require('./routes/uploadRoutes'));
+app.use('/api/results', require('./routes/resultRoutes'));
 
 // 404 Handler for undefined API routes
-router.use('/api/*', (req, res) => {
+app.use('/api/*', (req, res) => {
   res.status(404).json({
     success: false,
     message: `API Route Not Found: ${req.method} ${req.originalUrl}`,
   });
 });
-
-// Mount API routes under /api/backend to match Vercel's service rewrite
-app.use('/api/backend', router);
 
 // Centralized Error Handling Middleware
 app.use(errorHandler);
@@ -98,10 +91,10 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`================================================================`);
     console.log(`🚀 Quiz System Backend Server running on port ${PORT}`);
-    console.log(`🌍 API Health Check : http://localhost:${PORT}/api/backend/api/health`);
+    console.log(`🌍 API Health Check : http://localhost:${PORT}/api/health`);
     console.log(`🔐 Admin Application: http://localhost:${PORT}/admin`);
-    console.log(`📚 Subjects API    : http://localhost:${PORT}/api/backend/api/subjects`);
-    console.log(`📊 Admin Stats     : http://localhost:${PORT}/api/backend/api/admin/stats`);
+    console.log(`📚 Subjects API    : http://localhost:${PORT}/api/subjects`);
+    console.log(`📊 Admin Stats     : http://localhost:${PORT}/api/admin/stats`);
     console.log(`================================================================`);
   });
 }
