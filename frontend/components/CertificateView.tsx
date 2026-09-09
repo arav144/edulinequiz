@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Download, ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { Download, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import { ISubmissionResult, Language, TRANSLATIONS } from './types';
 
 interface CertificateViewProps {
@@ -26,6 +26,7 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
 }) => {
   const t = TRANSLATIONS[lang];
   const isHindiMode = lang === 'hi';
+  const [downloadingImg, setDownloadingImg] = useState(false);
 
   const studentDisplayName = submissionResult.studentName || 'Student';
   const displayClass = submissionResult.className || classNameVal || 'Class 8';
@@ -58,12 +59,91 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
 
   const isPassed = submissionResult.result === 'Pass';
 
+  // Client-side high-resolution Certificate Image download using HTML Canvas
+  const handleDownloadImage = async () => {
+    try {
+      setDownloadingImg(true);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not initialize canvas context');
+
+      const bgImg = new Image();
+      bgImg.crossOrigin = 'anonymous';
+
+      await new Promise<void>((resolve, reject) => {
+        bgImg.onload = () => resolve();
+        bgImg.onerror = () => reject(new Error('Failed to load certificate template image'));
+        bgImg.src = '/img/certificate_framepdf.jpeg';
+      });
+
+      const W = bgImg.naturalWidth || 1600;
+      const H = bgImg.naturalHeight || 1153;
+      canvas.width = W;
+      canvas.height = H;
+
+      // 1. Draw Template Frame
+      ctx.drawImage(bgImg, 0, 0, W, H);
+
+      // Helper for clean centered text
+      ctx.fillStyle = '#0F172A';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // 1. Candidate Name (Centered)
+      ctx.font = 'bold 44px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(studentDisplayName, W / 2, H * 0.465);
+
+      // 2. Class
+      ctx.font = 'bold 24px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(displayClass, W * 0.275, H * 0.635);
+
+      // 3. School / Vidyalay
+      ctx.textAlign = 'left';
+      ctx.fillText(displaySchool, W * 0.56, H * 0.635);
+
+      // 4. Score: Marks
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 26px "JetBrains Mono", monospace';
+      ctx.fillText(`${submissionResult.score} / ${submissionResult.totalQuestions}`, W * 0.268, H * 0.732);
+
+      // 5. Score: Percentage
+      ctx.fillText(`${submissionResult.percentage}%`, W * 0.522, H * 0.732);
+
+      // 6. Score: Result
+      ctx.fillStyle = isPassed ? '#15803D' : '#B91C1C';
+      ctx.font = 'bold 26px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(isPassed ? (isHindiMode ? 'उत्तीर्ण' : 'Pass') : (isHindiMode ? 'अनुत्तीर्ण' : 'Fail'), W * 0.784, H * 0.732);
+
+      // 7. Date
+      ctx.fillStyle = '#334155';
+      ctx.textAlign = 'left';
+      ctx.font = 'bold 22px "JetBrains Mono", monospace';
+      ctx.fillText(dateStr, W * 0.315, H * 0.825);
+
+      // 8. Certificate ID
+      ctx.fillText(certId, W * 0.295, H * 0.866);
+
+      // Trigger Download
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `Certificate_${studentDisplayName.replace(/\s+/g, '_')}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err: any) {
+      alert(`Could not download image: ${err.message || 'Unknown error'}`);
+    } finally {
+      setDownloadingImg(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto w-full space-y-6 animate-fadeIn">
       {/* Action Toolbar (no-print: hidden when printing) */}
       <div className="no-print bg-white/95 backdrop-blur-md border border-slate-200/90 p-4 sm:p-5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md">
         <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Direct Clean PDF Download Button */}
+          {/* OPTION 1: Direct Clean PDF Download Button */}
           <button
             type="button"
             onClick={() => onDownloadPdf('certificate')}
@@ -73,8 +153,23 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             <Download className="w-4 h-4 text-amber-300" />
             <span>
               {downloadingPdf === 'certificate'
-                ? (isHindiMode ? 'डाउनलोड हो रहा है...' : 'Downloading...')
+                ? (isHindiMode ? 'PDF डाउनलोड हो रहा है...' : 'Downloading PDF...')
                 : (isHindiMode ? 'प्रमाण-पत्र डाउनलोड करें (PDF)' : 'Download Certificate (PDF)')}
+            </span>
+          </button>
+
+          {/* OPTION 2: Direct Image (JPG) Download Button */}
+          <button
+            type="button"
+            onClick={handleDownloadImage}
+            disabled={downloadingImg}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
+          >
+            <ImageIcon className="w-4 h-4 text-slate-900" />
+            <span>
+              {downloadingImg
+                ? (isHindiMode ? 'इमेज तैयार हो रही है...' : 'Generating Image...')
+                : (isHindiMode ? 'प्रमाण-पत्र डाउनलोड करें (Image / फोटो)' : 'Download Image (JPG)')}
             </span>
           </button>
         </div>
