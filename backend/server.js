@@ -47,15 +47,18 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// All routes now live under a router, which we mount at /api/backend below.
-// This matches the "/api/backend/*" prefix that Vercel's rewrite forwards.
-const router = express.Router();
-
-// Serve Admin Panel (static SPA bundled with backend)
-router.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
-router.get('/admin/*', (req, res) => {
+// Admin Panel stays at root-relative /admin (its built HTML/CSS/JS reference
+// asset paths like /admin/assets/... directly, so it must NOT sit behind the
+// /api/backend prefix). A matching vercel.json rewrite forwards "/admin/*"
+// straight to this backend service.
+app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
+app.get('/admin/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
+
+// Everything else (real API routes) lives under a router mounted at
+// /api/backend, matching Vercel's default multi-service rewrite prefix.
+const router = express.Router();
 
 // Health Diagnostics Endpoint
 router.get('/api/health', (req, res) => {
@@ -83,7 +86,7 @@ router.use('/api/*', (req, res) => {
   });
 });
 
-// Mount everything under /api/backend to match Vercel's service rewrite
+// Mount API routes under /api/backend to match Vercel's service rewrite
 app.use('/api/backend', router);
 
 // Centralized Error Handling Middleware
@@ -96,7 +99,7 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
     console.log(`================================================================`);
     console.log(`🚀 Quiz System Backend Server running on port ${PORT}`);
     console.log(`🌍 API Health Check : http://localhost:${PORT}/api/backend/api/health`);
-    console.log(`🔐 Admin Application: http://localhost:${PORT}/api/backend/admin`);
+    console.log(`🔐 Admin Application: http://localhost:${PORT}/admin`);
     console.log(`📚 Subjects API    : http://localhost:${PORT}/api/backend/api/subjects`);
     console.log(`📊 Admin Stats     : http://localhost:${PORT}/api/backend/api/admin/stats`);
     console.log(`================================================================`);
