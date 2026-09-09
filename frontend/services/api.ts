@@ -5,17 +5,29 @@
 
 const getApiBaseUrl = (): string => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl && envUrl.trim() !== '') {
-    return envUrl.trim().replace(/\/+$/, '');
-  }
+
   // In the browser
   if (typeof window !== 'undefined') {
-    // Local development
+    // Local development on developer's machine
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:5000';
+      return envUrl && envUrl.trim() !== '' ? envUrl.trim().replace(/\/+$/, '') : 'http://localhost:5000';
     }
-    // On Vercel / Production: Use relative URL so it calls /api/ on current origin
-    return '';
+    // On Vercel / Production:
+    // If NEXT_PUBLIC_API_URL was set to an unreachable/dead host or dummy name,
+    // fallback to relative '' so it uses the current live Vercel domain!
+    if (
+      !envUrl ||
+      envUrl.includes('edulinequiz-backend.vercel.app') ||
+      envUrl.includes('localhost') ||
+      envUrl.trim() === ''
+    ) {
+      return ''; // Relative path (calls same origin: /api/...)
+    }
+    return envUrl.trim().replace(/\/+$/, '');
+  }
+
+  if (envUrl && envUrl.trim() !== '') {
+    return envUrl.trim().replace(/\/+$/, '');
   }
   return 'http://localhost:5000';
 };
