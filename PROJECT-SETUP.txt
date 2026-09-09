@@ -1,0 +1,190 @@
+================================================================================
+  QUIZ SYSTEM — PROJECT SETUP GUIDE
+  Final Clean Structure | Production-Ready | Vercel Deployable
+================================================================================
+
+PROJECT STRUCTURE
+-----------------
+Quiz-System/
+├── frontend/          ← Student-facing Next.js app (deploy to Vercel)
+├── backend/           ← REST API + Admin Panel (deploy to Vercel)
+└── PROJECT-SETUP.txt  ← This file
+
+ARCHITECTURE
+------------
+frontend/   = Student quiz portal ONLY. No admin, no teacher panel.
+backend/    = Express REST API + MongoDB + Admin SPA at /admin route.
+
+The Admin Panel lives at: backend/public/admin/ (static SPA served by Express)
+Students access: http://localhost:3000
+Admins access:   http://localhost:5000/admin
+
+================================================================================
+  BACKEND SETUP
+================================================================================
+
+LOCATION: Quiz-System/backend/
+
+1. Install dependencies:
+   cd backend
+   npm install
+
+2. Create environment file:
+   Copy .env.example to .env and fill in your values:
+
+   PORT=5000
+   NODE_ENV=development
+   MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<dbname>?retryWrites=true&w=majority
+   JWT_SECRET=your_super_secret_jwt_key_here
+   FRONTEND_URL=http://localhost:3000
+   ADMIN_USERNAME=admin
+   ADMIN_PASSWORD=your_admin_password
+
+   # Cloudinary (Image & Audio Uploads)
+   CLOUDINARY_CLOUD_NAME=ulk2jofl
+   CLOUDINARY_API_KEY=284442367654776
+   CLOUDINARY_API_SECRET=lFeMLiQ4Vp5Xo-utWM3EwFvuPmg
+
+3. Start server:
+   npm start          ← Production
+   npm run dev        ← Development
+
+4. Verify it works:
+   http://localhost:5000/api/health   ← API health check
+   http://localhost:5000/admin        ← Admin Panel
+
+BACKEND ROUTES
+--------------
+POST   /api/auth/login                  ← Admin login
+GET    /api/subjects                    ← List subjects
+GET    /api/quizzes                     ← List available quizzes (student)
+POST   /api/quizzes/verify-student      ← Verify student ID before quiz
+GET    /api/quizzes/:id/questions       ← Get quiz questions (student)
+POST   /api/quizzes/:id/submit          ← Submit quiz attempt (student)
+GET    /api/results/:id                 ← Get attempt result (student)
+GET    /api/results/:id/pdf             ← Download Result Report PDF (A4 Portrait)
+GET    /api/results/:id/certificate     ← Download Passing Certificate PDF (A4 Landscape)
+GET    /api/admin/stats                 ← Dashboard stats (admin)
+GET    /api/admin/quizzes               ← All quizzes (admin)
+POST   /api/admin/quizzes               ← Create quiz (admin)
+PUT    /api/admin/quizzes/:id           ← Update quiz (admin)
+DELETE /api/admin/quizzes/:id           ← Delete quiz (admin)
+GET    /api/admin/questions             ← All questions (admin)
+POST   /api/admin/questions             ← Add question with image/audio (admin)
+PUT    /api/admin/questions/:id         ← Update question (admin)
+DELETE /api/admin/questions/:id         ← Delete question (admin)
+POST   /api/admin/upload/image          ← Cloudinary image upload (admin)
+POST   /api/admin/upload/audio          ← Cloudinary audio upload (admin)
+DELETE /api/admin/upload/asset          ← Delete asset from Cloudinary (admin)
+POST   /api/admin/subjects              ← Create subject (admin)
+PUT    /api/admin/subjects/:id          ← Update subject (admin)
+DELETE /api/admin/subjects/:id          ← Delete subject (admin)
+GET    /api/admin/attempts              ← All student attempts (admin)
+GET    /api/admin/attempts/:id          ← Attempt details (admin)
+
+================================================================================
+  FRONTEND SETUP
+================================================================================
+
+LOCATION: Quiz-System/frontend/
+
+1. Install dependencies:
+   cd frontend
+   npm install
+
+2. Create environment file:
+   Copy .env.example to .env.local:
+
+   NEXT_PUBLIC_API_URL=http://localhost:5000
+
+3. Start development server:
+   npm run dev        ← Development (http://localhost:3000)
+
+4. Build for production:
+   npm run build
+   npm start
+
+STUDENT FLOW
+------------
+1. Open http://localhost:3000
+2. See available published quizzes with subject badges
+3. Enter Candidate ID and Name to access quiz
+4. Answer MCQ questions (A/B/C/D) with optional image & audio support
+5. Submit — one attempt per student per quiz (enforced at DB level)
+6. View immediate Pass/Fail results with percentage & passing threshold
+7. Download Official Result Summary PDF (A4 Portrait)
+8. If passed, download Official Completion Certificate PDF (A4 Landscape)
+
+================================================================================
+  DATABASE (MONGODB ATLAS)
+================================================================================
+
+COLLECTIONS
+-----------
+quizzes    ← Quiz metadata (name, subjectId, numberOfQuestions, passingPercentage, status)
+questions  ← MCQ questions (question, options A-D, correctAnswer, imageUrl, audioUrl, subjectId, quizId)
+attempts   ← Student submissions (unique compound index: { studentId: 1, quizId: 1 })
+subjects   ← Subject taxonomy (name, slug, description)
+
+IMPORTANT CONSTRAINTS
+---------------------
+- Compound unique index on attempts: { studentId: 1, quizId: 1 }
+  This strictly prevents duplicate attempts at the database engine level.
+- Questions are MCQ (4 options: A, B, C, D).
+- Quizzes are status-gated: Published quizzes are accessible to students; Draft and Closed cannot be attempted.
+- Single-page Quiz & Question builder in Admin: Questions are authored and updated directly inside the Quiz modal.
+- Answer keys are NEVER sent to the student frontend during the quiz.
+- Media assets (images & audio) are hosted on Cloudinary CDN.
+- PDFs are generated dynamically on the server using PDFKit.
+
+================================================================================
+  DEPLOYMENT (VERCEL)
+================================================================================
+
+BACKEND DEPLOYMENT
+------------------
+1. Push backend/ folder to a GitHub repo
+2. Import to Vercel
+3. Set environment variables in Vercel dashboard:
+   - MONGODB_URI
+   - JWT_SECRET
+   - FRONTEND_URL (your Vercel frontend URL)
+   - ADMIN_USERNAME
+   - ADMIN_PASSWORD
+   - CLOUDINARY_CLOUD_NAME
+   - CLOUDINARY_API_KEY
+   - CLOUDINARY_API_SECRET
+   - NODE_ENV=production
+4. Deploy — backend/vercel.json is already configured
+
+FRONTEND DEPLOYMENT
+-------------------
+1. Push frontend/ folder to a separate GitHub repo
+2. Import to Vercel
+3. Set environment variable:
+   - NEXT_PUBLIC_API_URL=https://your-backend.vercel.app
+4. Deploy
+
+IMPORTANT: Frontend and Backend are deployed as INDEPENDENT Vercel projects.
+
+================================================================================
+  RUNNING LOCALLY (QUICK START)
+================================================================================
+
+Terminal 1 — Backend:
+  cd Quiz-System/backend
+  npm install
+  npm start
+  → http://localhost:5000
+
+Terminal 2 — Frontend:
+  cd Quiz-System/frontend
+  npm install
+  npm run dev
+  → http://localhost:3000
+
+Admin Panel: http://localhost:5000/admin
+  Username: admin
+  Password: admin123
+
+================================================================================
