@@ -75,6 +75,11 @@ export async function apiGetSubjects() {
   return apiRequest('/api/subjects');
 }
 
+// 1.2 Fetch Active Classes for Student Portal
+export async function apiGetClasses() {
+  return apiRequest('/api/classes');
+}
+
 // 2. Verify Student Identification & 1-Attempt Status
 export async function apiVerifyStudent(
   quizId: string,

@@ -27,6 +27,15 @@ export interface IQuizSummary {
   } | null;
 }
 
+export interface IClassLevel {
+  _id: string;
+  name: string;
+  displayHindi?: string;
+  order?: number;
+  isActive: boolean;
+  assignedQuizId?: IQuizSummary | string | null;
+}
+
 export interface IQuestionItem {
   _id: string;
   questionNumber: number;

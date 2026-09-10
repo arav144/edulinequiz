@@ -5,7 +5,7 @@ import {
   Award,
   ChevronDown,
 } from 'lucide-react';
-import { IQuizSummary, Language } from './types';
+import { IQuizSummary, Language, IClassLevel } from './types';
 
 interface HeroSectionProps {
   t: any;
@@ -15,6 +15,7 @@ interface HeroSectionProps {
   setStudentName: (v: string) => void;
   className: string;
   setClassName: (v: string) => void;
+  classes?: IClassLevel[];
   section: string;
   setSection: (v: string) => void;
   studentId: string;
@@ -36,6 +37,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   setStudentName,
   className,
   setClassName,
+  classes = [],
   schoolName,
   setSchoolName,
   loading,
@@ -178,11 +180,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <option value="" disabled>
                     {t.selectClass}
                   </option>
-                  {[3, 4, 5, 6, 7, 8].map((c) => (
-                    <option key={c} value={`Class ${c}`} className="text-slate-900">
-                      {lang === 'hi' ? `कक्षा ${c}` : `Class ${c}`}
-                    </option>
-                  ))}
+                  {classes && classes.length > 0 ? (
+                    classes.map((c) => (
+                      <option key={c._id || c.name} value={c.name} className="text-slate-900">
+                        {lang === 'hi' ? (c.displayHindi || c.name) : c.name}
+                      </option>
+                    ))
+                  ) : (
+                    [3, 4, 5, 6, 7, 8].map((c) => (
+                      <option key={c} value={`Class ${c}`} className="text-slate-900">
+                        {lang === 'hi' ? `कक्षा ${c}` : `Class ${c}`}
+                      </option>
+                    ))
+                  )}
                 </select>
                 <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-600 transition-colors">
                   <ChevronDown className="w-4 h-4" />

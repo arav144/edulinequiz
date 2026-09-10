@@ -80,6 +80,10 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
         Dashboard
       </div>
+      <div onclick="showSection('classes')" class="sidebar-link" id="nav-classes">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        Classes (कक्षाएं)
+      </div>
       <div onclick="showSection('quizzes')" class="sidebar-link" id="nav-quizzes">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
         Quizzes
@@ -214,6 +218,51 @@
       </div>
       <div id="subjectsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <div class="card p-8 text-center text-slate-500">Loading subjects...</div>
+      </div>
+    </div>
+
+    <!-- ─── CLASSES SECTION ───────────────────────────────────────────── -->
+    <div id="section-classes" class="p-6 fade-in hidden">
+      <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            Class Management
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">कक्षा नियंत्रण</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">Select which classes are active and assign the exact quiz that will be served to each class.</p>
+        </div>
+        <button onclick="openClassModal()" class="btn-primary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Add Class (नई कक्षा जोड़ें)
+        </button>
+      </div>
+
+      <!-- Quick Info Banner -->
+      <div class="mb-5 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-xs flex items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <span class="text-base">💡</span>
+          <span><strong>कक्षा & क्विज़ नियंत्रण:</strong> यहाँ से आप तय कर सकते हैं कि छात्र पोर्टल पर कौन-कौन सी कक्षाएं दिखेंगी और किस कक्षा के विद्यार्थी को कौन सा क्विज़ प्राप्त होगा।</span>
+        </div>
+        <button onclick="loadClasses()" class="text-xs text-indigo-300 hover:text-white underline shrink-0">Refresh List</button>
+      </div>
+
+      <div class="card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-700/30">
+              <tr class="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <th class="px-4 py-3">Order</th>
+                <th class="px-4 py-3">Class Name / नाम</th>
+                <th class="px-4 py-3">Student Portal Status</th>
+                <th class="px-4 py-3">Assigned Quiz (प्रतियोगिता)</th>
+                <th class="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="classesTableBody" class="divide-y divide-slate-700/50 text-slate-300">
+              <tr><td colspan="5" class="p-8 text-center text-slate-500">Loading classes...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -547,6 +596,50 @@
     <div class="flex gap-3 p-6 border-t border-slate-700">
       <button onclick="saveSubject()" class="btn-primary flex-1 justify-center"><span id="subjectSaveLabel">Add Subject</span></button>
       <button onclick="closeModal('subjectModal')" class="btn-secondary">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Class Modal -->
+<div id="classModal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:480px">
+    <div class="flex items-center justify-between p-6 border-b border-slate-700">
+      <h3 id="classModalTitle" class="text-lg font-bold text-white">Add Class</h3>
+      <button onclick="closeModal('classModal')" class="text-slate-400 hover:text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="p-6 space-y-4">
+      <input type="hidden" id="classId">
+      <div>
+        <label class="form-label">Class Identifier (e.g. Class 9) *</label>
+        <input type="text" id="className" placeholder="e.g. Class 9" class="form-input">
+      </div>
+      <div>
+        <label class="form-label">Display Name in Hindi (e.g. कक्षा 9) *</label>
+        <input type="text" id="classDisplayHindi" placeholder="e.g. कक्षा 9" class="form-input">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">Sort Order *</label>
+          <input type="number" id="classOrder" placeholder="e.g. 9" class="form-input" value="9">
+        </div>
+        <div class="flex flex-col justify-end pb-2">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="classIsActive" class="rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500 h-4 w-4" checked>
+            <span class="text-sm font-medium text-slate-300">Active (दिखाई दे)</span>
+          </label>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Assigned Quiz (इस कक्षा को कौन सा क्विज़ देना है)</label>
+        <select id="classAssignedQuiz" class="form-input">
+          <option value="">-- No Quiz Assigned (None) --</option>
+        </select>
+        <p class="text-xs text-slate-400 mt-1">जब विद्यार्थी यह कक्षा चुनेगा तो यही क्विज़ लोड होगा।</p>
+      </div>
+    </div>
+    <div class="flex gap-3 p-6 border-t border-slate-700">
+      <button onclick="saveClass()" class="btn-primary flex-1 justify-center"><span id="classSaveLabel">Save Class</span></button>
+      <button onclick="closeModal('classModal')" class="btn-secondary">Cancel</button>
     </div>
   </div>
 </div>

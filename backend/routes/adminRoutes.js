@@ -17,6 +17,14 @@ const {
   getQuizAttempts,
 } = require('../controllers/adminController');
 const { createSubject, updateSubject, deleteSubject } = require('../controllers/subjectController');
+const {
+  getAdminClasses,
+  createClass,
+  updateClass,
+  deleteClass,
+  toggleClassActive,
+  assignQuizToClass,
+} = require('../controllers/classController');
 
 // Protect all admin routes with JWT
 router.use(requireAdminAuth);
@@ -42,6 +50,14 @@ router.delete('/questions/:id', deleteQuestion);
 router.post('/subjects', createSubject);
 router.put('/subjects/:id', updateSubject);
 router.delete('/subjects/:id', deleteSubject);
+
+// Class Management (कक्षा प्रबंधन)
+router.get('/classes', getAdminClasses);
+router.post('/classes', createClass);
+router.put('/classes/:id', updateClass);
+router.delete('/classes/:id', deleteClass);
+router.patch('/classes/:id/toggle', toggleClassActive);
+router.patch('/classes/:id/assign-quiz', assignQuizToClass);
 
 // Attempts / Results
 router.get('/attempts', getAllAttempts);

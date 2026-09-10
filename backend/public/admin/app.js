@@ -9,6 +9,7 @@ let currentSection = 'dashboard';
 let confirmCallback = null;
 let allQuizzes = [];
 let allSubjects = [];
+let allClasses = [];
 
 // Builder State for Add / Edit Quiz
 let builderQuestions = [];
@@ -82,7 +83,7 @@ function fmtDateTime(d) {
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
 function showSection(name) {
-  ['dashboard', 'quizzes', 'questions', 'subjects', 'results'].forEach(s => {
+  ['dashboard', 'classes', 'quizzes', 'questions', 'subjects', 'results'].forEach(s => {
     const el = document.getElementById(`section-${s}`);
     const nav = document.getElementById(`nav-${s}`);
     if (el) el.classList.add('hidden');
@@ -91,11 +92,13 @@ function showSection(name) {
   document.getElementById(`section-${name}`).classList.remove('hidden');
   document.getElementById(`nav-${name}`).classList.add('active');
   document.getElementById('pageTitle').textContent = {
-    dashboard: 'Dashboard', quizzes: 'Quiz Management',
+    dashboard: 'Dashboard', classes: 'Class Management (कक्षा प्रबंधन)',
+    quizzes: 'Quiz Management',
     questions: 'Question Management', subjects: 'Subject Management', results: 'Student Results'
   }[name];
   currentSection = name;
   if (name === 'dashboard') loadDashboard();
+  if (name === 'classes') loadClasses();
   if (name === 'quizzes') loadQuizzes();
   if (name === 'questions') loadQuestions();
   if (name === 'subjects') loadSubjects();
@@ -1234,5 +1237,187 @@ function populateSubjectFilter(selectId) {
 function esc(str) {
   if (str == null) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CLASSES (कक्षा प्रबंधन)
+// ═══════════════════════════════════════════════════════════════════
+async function loadClassesData() {
+  const data = await API('GET', '/api/admin/classes');
+  allClasses = data.classes || [];
+}
+
+async function loadClasses() {
+  const tbody = document.getElementById('classesTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500">Loading classes...</td></tr>';
+  try {
+    if (!allQuizzes.length) {
+      await loadQuizzesData();
+    }
+    await loadClassesData();
+    renderClasses();
+  } catch (e) {
+    toast('Failed to load classes: ' + e.message, 'error');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-rose-400">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function renderClasses() {
+  const tbody = document.getElementById('classesTableBody');
+  if (!tbody) return;
+
+  if (!allClasses.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">No classes found. Click "+ Add Class" to create one.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = allClasses.map(c => {
+    const assignedQuiz = c.assignedQuizId;
+    const currentQuizId = assignedQuiz?._id || assignedQuiz || '';
+    const isActive = c.isActive !== false;
+
+    return `
+      <tr class="hover:bg-slate-700/20 transition">
+        <td class="px-4 py-3 font-mono text-xs text-slate-400 font-bold">${c.order ?? 0}</td>
+        <td class="px-4 py-3">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-white text-sm">${esc(c.name)}</span>
+            ${c.displayHindi ? `<span class="text-xs px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-medium border border-indigo-500/30">${esc(c.displayHindi)}</span>` : ''}
+          </div>
+        </td>
+        <td class="px-4 py-3">
+          <button onclick="toggleClassActive('${c._id}')"
+            class="px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition ${
+              isActive
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+                : 'bg-slate-700/60 text-slate-400 border border-slate-600 hover:bg-slate-700'
+            }" title="Click to toggle active on student portal">
+            <span class="w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-slate-500'}"></span>
+            ${isActive ? 'Active (छात्रों को दिखेगी)' : 'Inactive (छिपी हुई)'}
+          </button>
+        </td>
+        <td class="px-4 py-3">
+          <select onchange="changeClassQuiz('${c._id}', this.value)"
+            class="form-input text-xs py-1.5 px-2.5 max-w-sm bg-slate-800 border-slate-700 focus:border-indigo-500">
+            <option value="">-- No Quiz Assigned (None) --</option>
+            ${allQuizzes.map(q => `
+              <option value="${q._id}" ${q._id === currentQuizId ? 'selected' : ''}>
+                ${esc(q.name)} (${q.numberOfQuestions || 10} Qs) [${q.status}]
+              </option>
+            `).join('')}
+          </select>
+        </td>
+        <td class="px-4 py-3 text-right">
+          <div class="flex items-center justify-end gap-1.5">
+            <button onclick="openClassModal('${c._id}')" class="btn-sm bg-slate-700 text-slate-200 hover:bg-slate-600">Edit</button>
+            <button onclick="deleteClass('${c._id}')" class="btn-sm bg-rose-600/20 text-rose-400 hover:bg-rose-600/30">Del</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openClassModal(classId = '') {
+  const modal = document.getElementById('classModal');
+  if (!modal) return;
+
+  const sel = document.getElementById('classAssignedQuiz');
+  if (sel) {
+    sel.innerHTML = '<option value="">-- No Quiz Assigned (None) --</option>' +
+      allQuizzes.map(q => `<option value="${q._id}">${esc(q.name)} (${q.numberOfQuestions || 10} Qs)</option>`).join('');
+  }
+
+  if (classId) {
+    const c = allClasses.find(item => item._id === classId);
+    if (!c) return;
+    document.getElementById('classId').value = c._id;
+    document.getElementById('className').value = c.name || '';
+    document.getElementById('classDisplayHindi').value = c.displayHindi || '';
+    document.getElementById('classOrder').value = c.order ?? 0;
+    document.getElementById('classIsActive').checked = c.isActive !== false;
+    if (sel) {
+      sel.value = c.assignedQuizId?._id || c.assignedQuizId || '';
+    }
+    document.getElementById('classModalTitle').textContent = 'Edit Class';
+    document.getElementById('classSaveLabel').textContent = 'Update Class';
+  } else {
+    document.getElementById('classId').value = '';
+    document.getElementById('className').value = '';
+    document.getElementById('classDisplayHindi').value = '';
+    document.getElementById('classOrder').value = (allClasses.length + 3);
+    document.getElementById('classIsActive').checked = true;
+    if (sel) sel.value = '';
+    document.getElementById('classModalTitle').textContent = 'Add Class';
+    document.getElementById('classSaveLabel').textContent = 'Save Class';
+  }
+
+  openModal('classModal');
+}
+
+async function saveClass() {
+  const id = document.getElementById('classId').value;
+  const name = document.getElementById('className').value.trim();
+  const displayHindi = document.getElementById('classDisplayHindi').value.trim();
+  const order = parseInt(document.getElementById('classOrder').value, 10) || 0;
+  const isActive = document.getElementById('classIsActive').checked;
+  const assignedQuizId = document.getElementById('classAssignedQuiz').value || null;
+
+  if (!name) {
+    toast('Class name is required (e.g. Class 9).', 'error');
+    return;
+  }
+
+  const payload = { name, displayHindi, order, isActive, assignedQuizId };
+
+  try {
+    if (id) {
+      await API('PUT', `/api/admin/classes/${id}`, payload);
+      toast(`Class "${name}" updated successfully.`, 'success');
+    } else {
+      await API('POST', '/api/admin/classes', payload);
+      toast(`Class "${name}" added successfully.`, 'success');
+    }
+    closeModal('classModal');
+    await loadClasses();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function toggleClassActive(id) {
+  try {
+    const res = await API('PATCH', `/api/admin/classes/${id}/toggle`);
+    toast(res.message || 'Status updated', 'success');
+    await loadClasses();
+  } catch (e) {
+    toast('Failed to toggle status: ' + e.message, 'error');
+  }
+}
+
+async function changeClassQuiz(id, quizId) {
+  try {
+    const res = await API('PATCH', `/api/admin/classes/${id}/assign-quiz`, { quizId: quizId || null });
+    toast(res.message || 'Quiz assignment updated', 'success');
+    const item = allClasses.find(c => c._id === id);
+    if (item) item.assignedQuizId = quizId || null;
+  } catch (e) {
+    toast('Failed to assign quiz: ' + e.message, 'error');
+    await loadClasses();
+  }
+}
+
+async function deleteClass(id) {
+  const c = allClasses.find(item => item._id === id);
+  const name = c ? c.name : 'this class';
+  confirmAction('Delete Class', `Are you sure you want to permanently delete "${name}"?`, async () => {
+    try {
+      await API('DELETE', `/api/admin/classes/${id}`);
+      toast(`Class "${name}" deleted`, 'success');
+      await loadClasses();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  });
 }
 

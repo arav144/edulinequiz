@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   apiGetAvailableQuizzes,
   apiGetSubjects,
+  apiGetClasses,
   apiVerifyStudent,
   apiStartQuiz,
   apiSubmitAttempt,
@@ -35,6 +36,7 @@ import {
   IQuizSummary,
   IQuestionItem,
   ISubmissionResult,
+  IClassLevel,
   Language,
   TRANSLATIONS,
 } from '@/components/types';
@@ -61,6 +63,7 @@ export default function StudentPortalPage() {
 
   // Dropdown lists
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const [classes, setClasses] = useState<IClassLevel[]>([]);
 
   // Quizzes & Flow state
   const [quizzes, setQuizzes] = useState<IQuizSummary[]>([]);
@@ -105,16 +108,17 @@ export default function StudentPortalPage() {
   const t = TRANSLATIONS[lang];
 
   // -------------------------------------------------------------
-  // Initial Load: Fetch Quizzes & Subjects
+  // Initial Load: Fetch Quizzes, Subjects & Active Classes
   // -------------------------------------------------------------
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [quizRes, subRes] = await Promise.allSettled([
+      const [quizRes, subRes, classRes] = await Promise.allSettled([
         apiGetAvailableQuizzes(),
         apiGetSubjects(),
+        apiGetClasses(),
       ]);
 
       const subSet = new Set<string>();
@@ -124,6 +128,11 @@ export default function StudentPortalPage() {
         subRes.value.subjects.forEach((s: any) => {
           if (s.name) subSet.add(s.name);
         });
+      }
+
+      // Add active classes from classes collection
+      if (classRes.status === 'fulfilled' && classRes.value?.success && Array.isArray(classRes.value?.classes)) {
+        setClasses(classRes.value.classes);
       }
 
       // Add quizzes & subjects from quizzes
@@ -264,33 +273,66 @@ export default function StudentPortalPage() {
       // Extract student's selected class number, e.g. "Class 5" -> "5"
       const selectedClassNum = className ? className.replace(/\D/g, '') : '';
 
-      // Find target quiz for selected class and subject
-      let targetQuiz =
-        currentQuizzes.find((q) => {
-          if (!selectedClassNum) return false;
-          // 1. Direct targetClass match (e.g. 'Class 5' or '5')
-          if (q.targetClass) {
-            const qClassNum = q.targetClass.replace(/\D/g, '');
-            if (qClassNum && qClassNum === selectedClassNum) return true;
-          }
-          // 2. Name contains class (e.g. "कक्षा 5" or "Class 5")
-          if (q.name && (q.name.includes(`कक्षा ${selectedClassNum}`) || q.name.toLowerCase().includes(`class ${selectedClassNum}`))) {
-            return true;
-          }
-          return false;
-        }) ||
-        // Fallback: match by subject if class-specific quiz not explicitly found
-        currentQuizzes.find((q) => {
-          if (!q.subject || !selectedSubjectName) return false;
-          const s1 = q.subject.trim().toLowerCase();
-          const s2 = selectedSubjectName.trim().toLowerCase();
-          if (s1 === s2) return true;
-          if ((s1 === 'hindi' || s1 === 'हिन्दी' || s1 === 'हिंदी') && (s2 === 'hindi' || s2 === 'हिन्दी' || s2 === 'हिंदी')) return true;
-          if ((s1 === 'english' || s1 === 'अंग्रेजी') && (s2 === 'english' || s2 === 'अंग्रेजी')) return true;
-          return false;
-        }) ||
-        currentQuizzes.find((q) => q.isPlayable) ||
-        currentQuizzes[0];
+      // 1. Primary: Check if admin assigned a specific quiz to this class
+      const matchedClass = classes.find(
+        (c) =>
+          c.name?.toLowerCase() === className?.toLowerCase() ||
+          c.displayHindi?.toLowerCase() === className?.toLowerCase() ||
+          (selectedClassNum && c.name?.replace(/\D/g, '') === selectedClassNum)
+      );
+
+      let targetQuiz: IQuizSummary | null = null;
+
+      if (matchedClass?.assignedQuizId) {
+        const assignedId =
+          typeof matchedClass.assignedQuizId === 'object' && matchedClass.assignedQuizId?._id
+            ? matchedClass.assignedQuizId._id
+            : typeof matchedClass.assignedQuizId === 'string'
+            ? matchedClass.assignedQuizId
+            : null;
+
+        if (assignedId) {
+          targetQuiz =
+            currentQuizzes.find((q) => q._id === assignedId) ||
+            (typeof matchedClass.assignedQuizId === 'object'
+              ? (matchedClass.assignedQuizId as IQuizSummary)
+              : null);
+        }
+      }
+
+      // 2. Secondary: If no direct admin quiz assignment, match by targetClass number or quiz name
+      if (!targetQuiz) {
+        targetQuiz =
+          currentQuizzes.find((q) => {
+            if (!selectedClassNum) return false;
+            // Direct targetClass match (e.g. 'Class 5' or '5')
+            if (q.targetClass) {
+              const qClassNum = q.targetClass.replace(/\D/g, '');
+              if (qClassNum && qClassNum === selectedClassNum) return true;
+            }
+            // Name contains class (e.g. "कक्षा 5" or "Class 5")
+            if (
+              q.name &&
+              (q.name.includes(`कक्षा ${selectedClassNum}`) ||
+                q.name.toLowerCase().includes(`class ${selectedClassNum}`))
+            ) {
+              return true;
+            }
+            return false;
+          }) ||
+          // Fallback: match by subject
+          currentQuizzes.find((q) => {
+            if (!q.subject || !selectedSubjectName) return false;
+            const s1 = q.subject.trim().toLowerCase();
+            const s2 = selectedSubjectName.trim().toLowerCase();
+            if (s1 === s2) return true;
+            if ((s1 === 'hindi' || s1 === 'हिन्दी' || s1 === 'हिंदी') && (s2 === 'hindi' || s2 === 'हिन्दी' || s2 === 'हिंदी')) return true;
+            if ((s1 === 'english' || s1 === 'अंग्रेजी') && (s2 === 'english' || s2 === 'अंग्रेजी')) return true;
+            return false;
+          }) ||
+          currentQuizzes.find((q) => q.isPlayable) ||
+          currentQuizzes[0];
+      }
 
       // Safe Fallback for deployed instances: If backend query was temporarily delayed
       // use the pre-configured Hindi Diwas Quiz ID from DB so student is never stuck
@@ -563,6 +605,7 @@ export default function StudentPortalPage() {
               setStudentName={setStudentName}
               className={className}
               setClassName={setClassName}
+              classes={classes}
               section={section}
               setSection={setSection}
               studentId={studentId}
