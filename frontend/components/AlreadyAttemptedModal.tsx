@@ -23,6 +23,9 @@ export const AlreadyAttemptedModal: React.FC<AlreadyAttemptedModalProps> = ({
   onViewPreviousCertificate,
 }) => {
   const isHindi = lang === 'hi';
+  const displayQuizName = (quizName || (isHindi ? 'हिंदी दिवस प्रतियोगिता' : 'Hindi Diwas Competition'))
+    .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+    .replace(/क्विज़/g, 'प्रतियोगिता');
 
   if (!isOpen) return null;
 
@@ -46,15 +49,15 @@ export const AlreadyAttemptedModal: React.FC<AlreadyAttemptedModalProps> = ({
         {/* Title & Message */}
         <div className="space-y-1.5">
           <h3 className="text-lg sm:text-xl font-black text-slate-900 font-hindi">
-            {isHindi ? 'आप यह क्विज़ पहले ही दे चुके हैं!' : 'Quiz Already Completed!'}
+            {isHindi ? 'आप यह प्रतियोगिता पहले ही दे चुके हैं!' : 'Competition Already Completed!'}
           </h3>
           <p className="text-xs text-slate-600 font-medium font-hindi leading-relaxed">
             {isHindi
-              ? `आपने "${quizName || 'हिंदी दिवस प्रतियोगिता'}" को पहले ही सफलतापूर्वक पूरा कर लिया है। प्रति छात्र केवल एक ही प्रयास (attempt) मान्य है।`
-              : `You have already completed "${quizName || 'Competition'}". Only 1 attempt is allowed per student.`}
+              ? `आपने "${displayQuizName}" को पहले ही सफलतापूर्वक पूरा कर लिया है। प्रति छात्र केवल एक ही प्रयास (attempt) मान्य है।`
+              : `You have already completed "${displayQuizName}". Only 1 attempt is allowed per student.`}
           </p>
           <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-[11px] text-emerald-800 font-bold font-hindi">
-            ✨ {isHindi ? 'जब नया क्विज़ जारी किया जाएगा, तब आप दोबारा भाग ले सकेंगे।' : 'You will be able to attempt again when a new quiz is published.'}
+            ✨ {isHindi ? 'जब नई प्रतियोगिता जारी की जाएगी, तब आप दोबारा भाग ले सकेंगे।' : 'You will be able to attempt again when a new competition is published.'}
           </div>
         </div>
 

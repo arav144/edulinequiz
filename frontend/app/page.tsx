@@ -128,8 +128,17 @@ export default function StudentPortalPage() {
 
       // Add quizzes & subjects from quizzes
       if (quizRes.status === 'fulfilled' && quizRes.value?.success) {
-        const fetchedQuizzes: IQuizSummary[] =
+        const rawQuizzes: IQuizSummary[] =
           quizRes.value?.quizzes || quizRes.value?.data || [];
+        const fetchedQuizzes = rawQuizzes.map((q) => ({
+          ...q,
+          name: (q.name || '')
+            .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+            .replace(/क्विज़/g, 'प्रतियोगिता'),
+          instructions: (q.instructions || '')
+            .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+            .replace(/क्विज़/g, 'प्रतियोगिता'),
+        }));
         if (fetchedQuizzes.length > 0) {
           setQuizzes(fetchedQuizzes);
           fetchedQuizzes.forEach((q: any) => {
@@ -236,7 +245,15 @@ export default function StudentPortalPage() {
         try {
           const freshRes = await apiGetAvailableQuizzes();
           if (freshRes?.success && Array.isArray(freshRes.quizzes) && freshRes.quizzes.length > 0) {
-            currentQuizzes = freshRes.quizzes;
+            currentQuizzes = freshRes.quizzes.map((q: any) => ({
+              ...q,
+              name: (q.name || '')
+                .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+                .replace(/क्विज़/g, 'प्रतियोगिता'),
+              instructions: (q.instructions || '')
+                .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+                .replace(/क्विज़/g, 'प्रतियोगिता'),
+            }));
             setQuizzes(currentQuizzes);
           }
         } catch (e) {
@@ -367,11 +384,11 @@ export default function StudentPortalPage() {
       } else if (res.success && questionList.length === 0) {
         setError(
           lang === 'hi'
-            ? 'इस क्विज़ में अभी कोई प्रश्न उपलब्ध नहीं हैं।'
+            ? 'इस प्रतियोगिता में अभी कोई प्रश्न उपलब्ध नहीं हैं।'
             : 'No questions are available for this quiz yet.'
         );
       } else {
-        setError(res.message || (lang === 'hi' ? 'क्विज़ शुरू करने में असमर्थ' : 'Could not start quiz.'));
+        setError(res.message || (lang === 'hi' ? 'प्रतियोगिता शुरू करने में असमर्थ' : 'Could not start quiz.'));
       }
     } catch (err: any) {
       setError(err.message || 'Could not start quiz. Please try again.');
@@ -553,7 +570,7 @@ export default function StudentPortalPage() {
                 </h2>
                 <p className="text-xs text-slate-300">
                   {lang === 'hi'
-                    ? 'कृपया अपनी परीक्षा शुरू करने के लिए क्विज़ का चयन करें'
+                    ? 'कृपया अपनी परीक्षा शुरू करने के लिए प्रतियोगिता का चयन करें'
                     : 'Select your examination to begin test'}
                 </p>
               </div>

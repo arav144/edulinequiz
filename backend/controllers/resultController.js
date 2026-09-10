@@ -63,7 +63,11 @@ const getResult = async (req, res, next) => {
       result: {
         attemptId: attempt._id,
         quizId: attempt.quizId,
-        quizName: quiz ? quiz.name : 'Quiz',
+        quizName: quiz
+          ? (quiz.name || '')
+              .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+              .replace(/क्विज़/g, 'प्रतियोगिता')
+          : 'हिंदी दिवस प्रतियोगिता',
         studentName: attempt.studentName,
         studentIdentifier: attempt.studentIdentifier,
         className: attempt.className,
@@ -273,6 +277,16 @@ const downloadCertificatePdf = async (req, res, next) => {
     if (framePdfSrc) {
       doc.image(framePdfSrc, 0, 0, { width: W, height: H });
 
+      // Cover baked "हिंदी दिवस क्विज़" with "हिंदी दिवस प्रतियोगिता"
+      doc.rect(W * 0.28, H * 0.285, W * 0.44, H * 0.052).fill('#FFFFFF');
+      doc.fillColor('#5C2417').fontSize(18).font(fBold)
+        .text('हिंदी दिवस प्रतियोगिता', 0, H * 0.292, { align: 'center', width: W });
+
+      // Cover baked "को हिंदी दिवस क्विज़ सफलतापूर्वक पूर्ण करने"
+      doc.rect(W * 0.22, H * 0.492, W * 0.56, H * 0.038).fill('#FFFFFF');
+      doc.fillColor('#1E293B').fontSize(12).font(fBold)
+        .text('को हिंदी दिवस प्रतियोगिता सफलतापूर्वक पूर्ण करने', 0, H * 0.495, { align: 'center', width: W });
+
       // Dynamic typed values overlaid on exact underlines of certificate_framepdf.jpeg:
       // 1. Candidate Name (Centered)
       const candidateName = attempt.studentName || 'Student';
@@ -342,7 +356,9 @@ const downloadCertificatePdf = async (req, res, next) => {
       .text(titleText, 0, 85, { align: 'center', width: W });
 
     // ─── 4. Quiz Subtitle ────────────────────────────────────────────────────
-    const quizTitle = quiz?.name || (isHindi ? 'हिंदी दिवस प्रतियोगिता' : 'Assessment Quiz');
+    const quizTitle = (quiz?.name || (isHindi ? 'हिंदी दिवस प्रतियोगिता' : 'Assessment Quiz'))
+      .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+      .replace(/क्विज़/g, 'प्रतियोगिता');
     doc.fillColor('#1E293B').fontSize(16).font(fBold)
       .text(quizTitle, 0, 122, { align: 'center', width: W });
 

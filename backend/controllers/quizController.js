@@ -56,7 +56,9 @@ const getAvailableQuizzes = async (req, res, next) => {
 
       return {
         _id: quiz._id,
-        name: quiz.name,
+        name: (quiz.name || '')
+          .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+          .replace(/क्विज़/g, 'प्रतियोगिता'),
         subjectId: quiz.subjectId?._id || quiz.subjectId || null,
         subject: quiz.subjectId?.name || '',
         numberOfQuestions: quiz.numberOfQuestions,
@@ -64,7 +66,9 @@ const getAvailableQuizzes = async (req, res, next) => {
         passingPercentage: quiz.passingPercentage || 50,
         timePerQuestion: quiz.timePerQuestion || 30,
         description: quiz.description || '',
-        instructions: quiz.instructions || '',
+        instructions: (quiz.instructions || '')
+          .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+          .replace(/क्विज़/g, 'प्रतियोगिता'),
         contactInfo: quiz.contactInfo || '',
         language: quiz.language || 'en',
         isPlayable,
@@ -216,14 +220,18 @@ const startQuiz = async (req, res, next) => {
 
     const quizDetails = {
       _id: quiz._id,
-      name: quiz.name,
+      name: (quiz.name || '')
+        .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+        .replace(/क्विज़/g, 'प्रतियोगिता'),
       subjectId: quiz.subjectId?._id || quiz.subjectId || null,
       subject: quiz.subjectId?.name || '',
       numberOfQuestions: quiz.numberOfQuestions,
       passingPercentage: quiz.passingPercentage || 50,
       timePerQuestion: quiz.timePerQuestion || 30,
       description: quiz.description || '',
-      instructions: quiz.instructions || '',
+      instructions: (quiz.instructions || '')
+        .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+        .replace(/क्विज़/g, 'प्रतियोगिता'),
       contactInfo: quiz.contactInfo || '',
       language: quiz.language || 'en',
     };

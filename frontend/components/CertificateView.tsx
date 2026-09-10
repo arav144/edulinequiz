@@ -86,6 +86,22 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
       // 1. Draw Template Frame
       ctx.drawImage(bgImg, 0, 0, W, H);
 
+      // 1a. Cover baked "हिंदी दिवस क्विज़" with "हिंदी दिवस प्रतियोगिता"
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(W * 0.28, H * 0.285, W * 0.44, H * 0.052);
+      ctx.fillStyle = '#5C2417';
+      ctx.font = 'bold 36px "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('हिंदी दिवस प्रतियोगिता', W / 2, H * 0.31);
+
+      // 1b. Cover baked "को हिंदी दिवस क्विज़ सफलतापूर्वक पूर्ण करने"
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(W * 0.22, H * 0.492, W * 0.56, H * 0.038);
+      ctx.fillStyle = '#1E293B';
+      ctx.font = 'bold 24px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText('को हिंदी दिवस प्रतियोगिता सफलतापूर्वक पूर्ण करने', W / 2, H * 0.51);
+
       // Helper for clean centered text
       ctx.fillStyle = '#0F172A';
       ctx.textAlign = 'center';
@@ -199,6 +215,36 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             alt="Certificate of Achievement"
             className="w-full h-full object-contain block pointer-events-none"
           />
+
+          {/* Subtitle: Covers template text "हिंदी दिवस क्विज़" with "हिंदी दिवस प्रतियोगिता" */}
+          <div
+            className="absolute flex items-center justify-center pointer-events-none bg-white"
+            style={{
+              top: '28.5%',
+              left: '28%',
+              width: '44%',
+              height: '5.2%',
+            }}
+          >
+            <span className="font-hindi font-black text-[#5C2417] text-sm sm:text-lg md:text-xl lg:text-2xl text-center leading-none tracking-wide">
+              हिंदी दिवस प्रतियोगिता
+            </span>
+          </div>
+
+          {/* Body line: Covers "को हिंदी दिवस क्विज़ सफलतापूर्वक पूर्ण करने" with "को हिंदी दिवस प्रतियोगिता सफलतापूर्वक पूर्ण करने" */}
+          <div
+            className="absolute flex items-center justify-center pointer-events-none bg-white"
+            style={{
+              top: '49.4%',
+              left: '22%',
+              width: '56%',
+              height: '3.6%',
+            }}
+          >
+            <span className="font-hindi font-bold text-slate-800 text-[10px] sm:text-xs md:text-sm lg:text-base text-center leading-none">
+              को हिंदी दिवस प्रतियोगिता सफलतापूर्वक पूर्ण करने
+            </span>
+          </div>
 
           {/* 1. Candidate Name (Line Y=545/1153 = 47.3%, Centered) */}
           <div

@@ -54,7 +54,9 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
           {/* Section 1: Overview / About */}
           <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-2.5">
             <h4 className="font-bold text-sm text-slate-900">
-              {quiz?.name || (isHindiMode ? 'हिंदी दिवस विशेष प्रतियोगिता' : 'Hindi Diwas Special Quiz')}
+              {(quiz?.name || (isHindiMode ? 'हिंदी दिवस विशेष प्रतियोगिता' : 'Hindi Diwas Special Quiz'))
+                .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+                .replace(/क्विज़/g, 'प्रतियोगिता')}
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
               {quiz?.description ||
@@ -99,7 +101,11 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
             </h4>
             <ul className="space-y-2">
               {(quiz?.instructions
-                ? quiz.instructions.split('\n').filter(Boolean)
+                ? quiz.instructions
+                    .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+                    .replace(/क्विज़/g, 'प्रतियोगिता')
+                    .split('\n')
+                    .filter(Boolean)
                 : isHindiMode
                 ? [
                     'प्रत्येक प्रश्न को ध्यानपूर्वक पढ़ें और दिए गए विकल्पों में से सही उत्तर चुनें।',
