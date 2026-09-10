@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   GraduationCap,
   Building2,
@@ -41,8 +41,87 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   loading,
   onSubmit,
 }) => {
+  // Mobile 3-Second Poster Splash State (< 1024px)
+  const [showMobileSplash, setShowMobileSplash] = useState<boolean>(true);
+  const [splashCountdown, setSplashCountdown] = useState<number>(3);
+
+  useEffect(() => {
+    // If desktop (>= 1024px), skip splash immediately
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      setShowMobileSplash(false);
+      return;
+    }
+
+    // 3-second timer
+    const interval = setInterval(() => {
+      setSplashCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setShowMobileSplash(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center py-4">
+      {/* MOBILE 3-SECOND HINDI DIWAS SPLASH OVERLAY */}
+      {showMobileSplash && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-gradient-to-b from-amber-50 via-white to-amber-100/90 backdrop-blur-xl flex flex-col items-center justify-between p-5 sm:p-8 animate-fadeIn select-none">
+          {/* Top Branding */}
+          <div className="pt-2 flex flex-col items-center gap-1">
+            <img
+              src="/img/Edulinenew.jpg"
+              alt="Eduline Publishers"
+              className="h-10 sm:h-12 w-auto object-contain drop-shadow-sm"
+            />
+            <span className="text-[11px] font-bold text-amber-800 tracking-wider font-hindi uppercase">
+              हिंदी दिवस विशेष प्रतियोगिता
+            </span>
+          </div>
+
+          {/* Center: Hindidiwas Poster */}
+          <div className="relative w-full max-w-sm flex items-center justify-center my-auto py-2">
+            <img
+              src="/img/hindidiwas.png"
+              alt="हिंदी दिवस पोस्टर"
+              className="w-full h-auto max-h-[65vh] object-contain drop-shadow-2xl animate-scaleIn select-none pointer-events-none"
+            />
+          </div>
+
+          {/* Bottom Countdown & Action */}
+          <div className="w-full max-w-xs space-y-3 text-center pb-3">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-600 font-hindi">
+                <span>पंजीकरण प्रारंभ हो रहा है...</span>
+                <span className="font-mono text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-black">
+                  {splashCountdown}s
+                </span>
+              </div>
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden shadow-inner">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 rounded-full transition-all duration-1000 ease-linear"
+                  style={{ width: `${((4 - splashCountdown) / 3) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Skip Button */}
+            <button
+              type="button"
+              onClick={() => setShowMobileSplash(false)}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 active:scale-95 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>सीधे आगे बढ़ें ➔</span>
+            </button>
+          </div>
+        </div>
+      )}
       {/* LEFT COLUMN: REGISTRATION FORM CARD */}
       <div className="lg:col-span-5 w-full">
         <div className="bg-white/98 backdrop-blur-2xl rounded-[32px] p-6 sm:p-8 shadow-xl hover:shadow-2xl transition-shadow duration-300 text-slate-800 border border-slate-100/90 relative overflow-hidden max-w-md mx-auto">

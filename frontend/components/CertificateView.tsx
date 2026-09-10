@@ -86,22 +86,6 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
       // 1. Draw Template Frame
       ctx.drawImage(bgImg, 0, 0, W, H);
 
-      // 1a. Cover baked "हिंदी दिवस क्विज़" with "हिंदी दिवस प्रतियोगिता"
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(W * 0.28, H * 0.285, W * 0.44, H * 0.052);
-      ctx.fillStyle = '#5C2417';
-      ctx.font = 'bold 36px "Plus Jakarta Sans", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('हिंदी दिवस प्रतियोगिता', W / 2, H * 0.31);
-
-      // 1b. Cover baked "को हिंदी दिवस क्विज़ सफलतापूर्वक पूर्ण करने"
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(W * 0.22, H * 0.492, W * 0.56, H * 0.038);
-      ctx.fillStyle = '#1E293B';
-      ctx.font = 'bold 24px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText('को हिंदी दिवस प्रतियोगिता सफलतापूर्वक पूर्ण करने', W / 2, H * 0.51);
-
       // Helper for clean centered text
       ctx.fillStyle = '#0F172A';
       ctx.textAlign = 'center';
@@ -159,48 +143,93 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   return (
     <div className="max-w-4xl mx-auto w-full space-y-6 animate-fadeIn">
       {/* Action Toolbar (no-print: hidden when printing) */}
-      <div className="no-print bg-white/95 backdrop-blur-md border border-slate-200/90 p-4 sm:p-5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* OPTION 1: Direct Clean PDF Download Button */}
+      <div className="no-print bg-white/95 backdrop-blur-md border border-slate-200/90 p-2.5 sm:p-5 rounded-2xl shadow-md">
+        {/* MOBILE VIEW (< sm): Sleek, ultra-clean Icon Action Bar in 1 single horizontal row */}
+        <div className="flex sm:hidden items-center justify-between gap-2 w-full">
+          {/* PDF Download Icon Button */}
           <button
             type="button"
             onClick={() => onDownloadPdf('certificate')}
             disabled={downloadingPdf === 'certificate'}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-emerald-800 active:scale-95 text-white font-black text-xs shadow-md transition-all disabled:opacity-60 cursor-pointer"
+            title="Download PDF"
           >
-            <Download className="w-4 h-4 text-amber-300" />
-            <span>
-              {downloadingPdf === 'certificate'
-                ? (isHindiMode ? 'PDF डाउनलोड हो रहा है...' : 'Downloading PDF...')
-                : (isHindiMode ? 'प्रमाण-पत्र डाउनलोड करें (PDF)' : 'Download Certificate (PDF)')}
+            <Download className="w-4 h-4 text-amber-300 flex-shrink-0" />
+            <span className="truncate">
+              {downloadingPdf === 'certificate' ? 'डाउनलोड...' : 'PDF'}
             </span>
           </button>
 
-          {/* OPTION 2: Direct Image (JPG) Download Button (Bright & clean, not dark) */}
+          {/* Image (JPG) Download Icon Button */}
           <button
             type="button"
             onClick={handleDownloadImage}
             disabled={downloadingImg}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 hover:brightness-105 text-amber-950 text-xs sm:text-sm font-extrabold border border-amber-400/80 shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 active:scale-95 text-amber-950 font-black text-xs border border-amber-400/80 shadow-md transition-all disabled:opacity-60 cursor-pointer"
+            title="Download Image (JPG)"
           >
-            <ImageIcon className="w-4 h-4 text-amber-900" />
-            <span>
-              {downloadingImg
-                ? (isHindiMode ? 'इमेज तैयार हो रही है...' : 'Generating Image...')
-                : (isHindiMode ? 'प्रमाण-पत्र डाउनलोड करें (Image / फोटो)' : 'Download Image (JPG)')}
+            <ImageIcon className="w-4 h-4 text-amber-950 flex-shrink-0" />
+            <span className="truncate">
+              {downloadingImg ? 'तैयार...' : 'फोटो (JPG)'}
             </span>
+          </button>
+
+          {/* Back Home Button */}
+          <button
+            type="button"
+            onClick={onBackToDashboard}
+            className="flex items-center justify-center gap-1 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold text-xs transition-all shrink-0 cursor-pointer"
+            title={t.backToDashboard}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>होम</span>
           </button>
         </div>
 
-        {/* Back Button */}
-        <button
-          type="button"
-          onClick={onBackToDashboard}
-          className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>{t.backToDashboard}</span>
-        </button>
+        {/* DESKTOP VIEW (>= sm): Full buttons */}
+        <div className="hidden sm:flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* OPTION 1: Direct Clean PDF Download Button */}
+            <button
+              type="button"
+              onClick={() => onDownloadPdf('certificate')}
+              disabled={downloadingPdf === 'certificate'}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
+            >
+              <Download className="w-4 h-4 text-amber-300" />
+              <span>
+                {downloadingPdf === 'certificate'
+                  ? (isHindiMode ? 'PDF डाउनलोड हो रहा है...' : 'Downloading PDF...')
+                  : (isHindiMode ? 'प्रमाण-पत्र डाउनलोड करें (PDF)' : 'Download Certificate (PDF)')}
+              </span>
+            </button>
+
+            {/* OPTION 2: Direct Image (JPG) Download Button */}
+            <button
+              type="button"
+              onClick={handleDownloadImage}
+              disabled={downloadingImg}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 hover:brightness-105 text-amber-950 text-xs sm:text-sm font-extrabold border border-amber-400/80 shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
+            >
+              <ImageIcon className="w-4 h-4 text-amber-900" />
+              <span>
+                {downloadingImg
+                  ? (isHindiMode ? 'इमेज तैयार हो रही है...' : 'Generating Image...')
+                  : (isHindiMode ? 'प्रमाण-पत्र डाउनलोड करें (Image / फोटो)' : 'Download Image (JPG)')}
+              </span>
+            </button>
+          </div>
+
+          {/* Back Button */}
+          <button
+            type="button"
+            onClick={onBackToDashboard}
+            className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{t.backToDashboard}</span>
+          </button>
+        </div>
       </div>
 
       {/* Framed Certificate of Achievement using certificate_framepdf.jpeg */}
@@ -215,36 +244,6 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             alt="Certificate of Achievement"
             className="w-full h-full object-contain block pointer-events-none"
           />
-
-          {/* Subtitle: Covers template text "हिंदी दिवस क्विज़" with "हिंदी दिवस प्रतियोगिता" */}
-          <div
-            className="absolute flex items-center justify-center pointer-events-none bg-white"
-            style={{
-              top: '28.5%',
-              left: '28%',
-              width: '44%',
-              height: '5.2%',
-            }}
-          >
-            <span className="font-hindi font-black text-[#5C2417] text-sm sm:text-lg md:text-xl lg:text-2xl text-center leading-none tracking-wide">
-              हिंदी दिवस प्रतियोगिता
-            </span>
-          </div>
-
-          {/* Body line: Covers "को हिंदी दिवस क्विज़ सफलतापूर्वक पूर्ण करने" with "को हिंदी दिवस प्रतियोगिता सफलतापूर्वक पूर्ण करने" */}
-          <div
-            className="absolute flex items-center justify-center pointer-events-none bg-white"
-            style={{
-              top: '49.4%',
-              left: '22%',
-              width: '56%',
-              height: '3.6%',
-            }}
-          >
-            <span className="font-hindi font-bold text-slate-800 text-[10px] sm:text-xs md:text-sm lg:text-base text-center leading-none">
-              को हिंदी दिवस प्रतियोगिता सफलतापूर्वक पूर्ण करने
-            </span>
-          </div>
 
           {/* 1. Candidate Name (Line Y=545/1153 = 47.3%, Centered) */}
           <div
