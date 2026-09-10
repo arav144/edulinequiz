@@ -279,8 +279,9 @@ const downloadCertificatePdf = async (req, res, next) => {
       doc.fillColor('#0F172A').fontSize(22).font(fBold)
         .text(candidateName, 0, 252, { align: 'center', width: W });
 
-      // 2. Class
-      const classVal = attempt.className || 'Class 8';
+      // 2. Class (Strip duplicate 'Class' or 'कक्षा' so only the number/value is printed next to कक्षा:)
+      const rawClass = attempt.className || '8';
+      const classVal = String(rawClass).replace(/^(class|कक्षा)\s*/i, '').trim() || String(rawClass);
       doc.fillColor('#0F172A').fontSize(11).font(fBold)
         .text(classVal, 185, 372, { width: 95, align: 'center' });
 
@@ -365,7 +366,9 @@ const downloadCertificatePdf = async (req, res, next) => {
 
     // ─── 8. Candidate Class & School Row (Two Columns with Underlines) ───────
     const rowY = 250;
-    const classVal = attempt.className ? `${attempt.className}${attempt.section ? ` - ${attempt.section}` : ''}` : 'Class 8 - A';
+    const rawClassFallback = attempt.className || '8';
+    const cleanClass = String(rawClassFallback).replace(/^(class|कक्षा)\s*/i, '').trim() || String(rawClassFallback);
+    const classVal = `${cleanClass}${attempt.section ? ` - ${attempt.section}` : ''}`;
     const schoolVal = attempt.schoolName || 'ABC Public School';
 
     const classLabel = isHindi ? 'कक्षा:' : 'Class:';
