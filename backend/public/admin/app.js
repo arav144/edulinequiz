@@ -250,6 +250,7 @@ function renderQuizzes() {
           <div class="flex items-center gap-3 mb-1.5">
             <h3 class="text-base font-bold text-white truncate">${esc(q.name)}</h3>
             <span class="${statusBadge}">${q.status}</span>
+            ${q.targetClass && q.targetClass !== 'All' ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">🎯 ${esc(q.targetClass)}</span>` : '<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-700 text-slate-300">All Classes</span>'}
             ${q.subject ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">${esc(q.subject)}</span>` : ''}
           </div>
           <div class="flex flex-wrap gap-4 text-xs text-slate-400 mb-3">
@@ -315,6 +316,7 @@ async function openQuizModal(quiz = null) {
   document.getElementById('quizTimePerQuestion').value = isEdit ? (fullQuiz.timePerQuestion || 30) : 30;
   document.getElementById('quizPassingPct').value = isEdit ? (fullQuiz.passingPercentage || 50) : 50;
   document.getElementById('quizLanguage').value = isEdit ? (fullQuiz.language || 'en') : 'en';
+  document.getElementById('quizTargetClass').value = isEdit ? (fullQuiz.targetClass || 'All') : 'All';
   document.getElementById('quizDescription').value = isEdit ? (fullQuiz.description || '') : '';
   document.getElementById('quizInstructions').value = isEdit ? (fullQuiz.instructions || '') : '';
   document.getElementById('quizContactInfo').value = isEdit ? (fullQuiz.contactInfo || '') : '';
@@ -665,6 +667,7 @@ async function saveQuizBuilder(targetStatus = 'Draft') {
   const timePerQuestion = Number(document.getElementById('quizTimePerQuestion').value) || 30;
   const passingPercentage = Number(document.getElementById('quizPassingPct').value) || 50;
   const language = document.getElementById('quizLanguage').value || 'en';
+  const targetClass = document.getElementById('quizTargetClass')?.value || 'All';
   const description = document.getElementById('quizDescription').value.trim();
   const instructions = document.getElementById('quizInstructions').value.trim();
   const contactInfo = document.getElementById('quizContactInfo').value.trim();
@@ -746,6 +749,7 @@ async function saveQuizBuilder(targetStatus = 'Draft') {
     timePerQuestion,
     passingPercentage,
     language,
+    targetClass,
     description,
     instructions,
     contactInfo,

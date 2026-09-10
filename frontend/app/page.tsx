@@ -261,8 +261,25 @@ export default function StudentPortalPage() {
         }
       }
 
-      // Find target quiz for selected subject
+      // Extract student's selected class number, e.g. "Class 5" -> "5"
+      const selectedClassNum = className ? className.replace(/\D/g, '') : '';
+
+      // Find target quiz for selected class and subject
       let targetQuiz =
+        currentQuizzes.find((q) => {
+          if (!selectedClassNum) return false;
+          // 1. Direct targetClass match (e.g. 'Class 5' or '5')
+          if (q.targetClass) {
+            const qClassNum = q.targetClass.replace(/\D/g, '');
+            if (qClassNum && qClassNum === selectedClassNum) return true;
+          }
+          // 2. Name contains class (e.g. "कक्षा 5" or "Class 5")
+          if (q.name && (q.name.includes(`कक्षा ${selectedClassNum}`) || q.name.toLowerCase().includes(`class ${selectedClassNum}`))) {
+            return true;
+          }
+          return false;
+        }) ||
+        // Fallback: match by subject if class-specific quiz not explicitly found
         currentQuizzes.find((q) => {
           if (!q.subject || !selectedSubjectName) return false;
           const s1 = q.subject.trim().toLowerCase();

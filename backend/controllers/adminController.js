@@ -189,6 +189,7 @@ const createQuiz = async (req, res, next) => {
       instructions,
       contactInfo,
       language = 'en',
+      targetClass = 'All',
       questions = [],
     } = req.body;
 
@@ -217,6 +218,7 @@ const createQuiz = async (req, res, next) => {
       instructions: instructions ? instructions.trim() : '',
       contactInfo: contactInfo ? contactInfo.trim() : '',
       language: language === 'hi' ? 'hi' : 'en',
+      targetClass: targetClass ? targetClass.trim() : 'All',
       subjectId: subjectId || null,
     });
 
@@ -376,6 +378,7 @@ const updateQuiz = async (req, res, next) => {
     if (instructions !== undefined) quiz.instructions = instructions.trim();
     if (contactInfo !== undefined) quiz.contactInfo = contactInfo.trim();
     if (language !== undefined) quiz.language = language === 'hi' ? 'hi' : 'en';
+    if (req.body.targetClass !== undefined) quiz.targetClass = req.body.targetClass.trim() || 'All';
     if (subjectId !== undefined) quiz.subjectId = subjectId || null;
 
     await quiz.save();

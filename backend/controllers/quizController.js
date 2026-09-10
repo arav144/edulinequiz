@@ -71,6 +71,7 @@ const getAvailableQuizzes = async (req, res, next) => {
           .replace(/क्विज़/g, 'प्रतियोगिता'),
         contactInfo: quiz.contactInfo || '',
         language: quiz.language || 'en',
+        targetClass: quiz.targetClass || 'All',
         isPlayable,
         isAttempted: !!existingAttempt,
         attemptResult: existingAttempt,

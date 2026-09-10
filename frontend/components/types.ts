@@ -13,6 +13,7 @@ export interface IQuizSummary {
   instructions?: string;
   contactInfo?: string;
   language?: Language;
+  targetClass?: string;
   isPlayable: boolean;
   isAttempted: boolean;
   attemptResult?: {

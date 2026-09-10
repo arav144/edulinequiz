@@ -55,6 +55,12 @@ const quizSchema = new mongoose.Schema(
       enum: ['en', 'hi'],
       default: 'en',
     },
+    targetClass: {
+      type: String,
+      trim: true,
+      default: 'All',
+      index: true,
+    },
   },
   {
     timestamps: true,

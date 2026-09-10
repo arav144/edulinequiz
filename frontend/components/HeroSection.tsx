@@ -178,7 +178,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <option value="" disabled>
                     {t.selectClass}
                   </option>
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((c) => (
+                  {[3, 4, 5, 6, 7, 8].map((c) => (
                     <option key={c} value={`Class ${c}`} className="text-slate-900">
                       {lang === 'hi' ? `कक्षा ${c}` : `Class ${c}`}
                     </option>
