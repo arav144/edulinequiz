@@ -4,76 +4,6 @@ import React from 'react';
 import { FileText, HelpCircle, Phone, AlertCircle, X } from 'lucide-react';
 import { IQuizSummary, Language, TRANSLATIONS } from './types';
 
-interface AboutModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  quiz?: IQuizSummary | null;
-  lang: Language;
-}
-
-export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose, quiz, lang }) => {
-  const t = TRANSLATIONS[lang];
-  const isHindiMode = lang === 'hi';
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
-      <div className="max-w-lg w-full bg-white rounded-3xl p-6 sm:p-8 space-y-4 text-slate-800 shadow-2xl border border-slate-100 relative">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <FileText className="w-4 h-4" />
-            </div>
-            <h3 className="text-base font-bold text-slate-900">{t.navAbout}</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="space-y-3 text-xs leading-relaxed text-slate-600">
-          <h4 className="font-bold text-sm text-slate-900">
-            {quiz?.name || (isHindiMode ? 'हिंदी दिवस विशेष प्रश्नोत्तरी' : 'Assessment Examination')}
-          </h4>
-          <p className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-slate-700 font-medium">
-            {quiz?.description ||
-              (isHindiMode
-                ? 'इस प्रश्नोत्तरी में हिंदी के राजभाषा बनने के इतिहास, हिंदी साहित्य तथा हिंदी व्याकरण से जुड़े रोचक और ज्ञानवर्धक प्रश्न शामिल हैं।'
-                : 'This assessment evaluates comprehensive knowledge, analytical understanding, and subject proficiency.')}
-          </p>
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100">
-              <span className="text-[10px] uppercase font-bold text-indigo-500 block">Total Questions</span>
-              <span className="text-base font-black text-slate-900 font-mono">
-                {quiz?.numberOfQuestions || 10} Questions
-              </span>
-            </div>
-            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
-              <span className="text-[10px] uppercase font-bold text-emerald-500 block">Passing Mark</span>
-              <span className="text-base font-black text-slate-900 font-mono">
-                {quiz?.passingPercentage || 50}%
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-2 text-right">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition"
-          >
-            {t.modalClose}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 interface InstructionsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -93,59 +23,120 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
-      <div className="max-w-lg w-full bg-white rounded-3xl p-6 sm:p-8 space-y-4 text-slate-800 shadow-2xl border border-slate-100 relative">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <HelpCircle className="w-4 h-4" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
+      <div className="max-w-xl w-full bg-white rounded-3xl p-5 sm:p-7 space-y-4 text-slate-800 shadow-2xl border border-slate-100 relative max-h-[90vh] flex flex-col">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+              <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <h3 className="text-base font-bold text-slate-900">{t.navInstructions}</h3>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+                {t.navInstructions}
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium">
+                {isHindiMode ? 'प्रतियोगिता का विवरण एवं आवश्यक नियम' : 'Competition details & guidelines'}
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 transition"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="space-y-2.5 text-xs text-slate-600 leading-relaxed max-h-80 overflow-y-auto pr-1">
-          <ul className="space-y-2">
-            {(quiz?.instructions
-              ? quiz.instructions.split('\n').filter(Boolean)
-              : isHindiMode
-              ? [
-                  'प्रत्येक प्रश्न को ध्यानपूर्वक पढ़ें और दिए गए विकल्पों में से सही उत्तर चुनें।',
-                  'सभी प्रश्नों के उत्तर देना अनिवार्य है।',
-                  'प्रत्येक प्रश्न के लिए निर्धारित समय (30 सेकंड) है, जिसके बाद अगला प्रश्न स्वतः आ जाएगा।',
-                  'एक बार आगे बढ़ने के बाद पिछले प्रश्न पर वापस नहीं जाया जा सकता।',
-                  'सभी प्रश्न पूरे करने के बाद ‘जमा करें’ बटन पर क्लिक करें।',
-                  'क्विज़ पूरा होने के बाद अपना स्कोर/परिणाम एवं प्रमाणपत्र प्राप्त करें।',
-                ]
-              : [
-                  'Read each question carefully and choose the correct option from A, B, C, or D.',
-                  'Answering all questions is mandatory.',
-                  'Each question has a countdown timer, after which the next question will automatically appear.',
-                  'Once you move forward, you cannot go back to previous questions.',
-                  'Click the "Submit" button after completing all questions.',
-                  'View and download your score card and certificate after completion.',
-                ]
-            ).map((rule, i) => (
-              <li key={i} className="flex items-start gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">
-                  {i + 1}
+        {/* Modal Content - Scrollable */}
+        <div className="space-y-4 text-xs text-slate-600 leading-relaxed overflow-y-auto pr-1 flex-1">
+          {/* Section 1: Overview / About */}
+          <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-2.5">
+            <h4 className="font-bold text-sm text-slate-900">
+              {quiz?.name || (isHindiMode ? 'हिंदी दिवस विशेष प्रतियोगिता' : 'Hindi Diwas Special Quiz')}
+            </h4>
+            <p className="text-xs text-slate-600 leading-relaxed font-medium">
+              {quiz?.description ||
+                (isHindiMode
+                  ? 'इस प्रतियोगिता में हिंदी के राजभाषा बनने के इतिहास, हिंदी साहित्य तथा हिंदी व्याकरण से जुड़े रोचक और ज्ञानवर्धक प्रश्न शामिल हैं।'
+                  : 'This assessment evaluates comprehensive knowledge, analytical understanding, and subject proficiency.')}
+            </p>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100/80 text-center sm:text-left">
+                <span className="text-[10px] uppercase font-bold text-indigo-600 block">
+                  {isHindiMode ? 'कुल प्रश्न' : 'Questions'}
                 </span>
-                <span className="font-medium text-slate-700">{rule}</span>
-              </li>
-            ))}
-          </ul>
+                <span className="text-xs sm:text-sm font-black text-slate-900 font-mono">
+                  {quiz?.numberOfQuestions || 10}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100/80 text-center sm:text-left">
+                <span className="text-[10px] uppercase font-bold text-emerald-600 block">
+                  {isHindiMode ? 'उत्तीर्ण अंक' : 'Passing Mark'}
+                </span>
+                <span className="text-xs sm:text-sm font-black text-slate-900 font-mono">
+                  {quiz?.passingPercentage || 50}%
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-100/80 text-center sm:text-left">
+                <span className="text-[10px] uppercase font-bold text-amber-600 block">
+                  {isHindiMode ? 'समय सीमा' : 'Time Limit'}
+                </span>
+                <span className="text-xs sm:text-sm font-black text-slate-900 font-mono">
+                  {isHindiMode ? '30 सेकंड / प्रश्न' : '30s / Q'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Instructions & Rules */}
+          <div className="space-y-2">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">
+              {isHindiMode ? 'महत्वपूर्ण नियम व निर्देश' : 'Important Rules & Instructions'}
+            </h4>
+            <ul className="space-y-2">
+              {(quiz?.instructions
+                ? quiz.instructions.split('\n').filter(Boolean)
+                : isHindiMode
+                ? [
+                    'प्रत्येक प्रश्न को ध्यानपूर्वक पढ़ें और दिए गए विकल्पों में से सही उत्तर चुनें।',
+                    'सभी प्रश्नों के उत्तर देना अनिवार्य है।',
+                    'प्रत्येक प्रश्न के लिए निर्धारित समय (30 सेकंड) है, जिसके बाद अगला प्रश्न स्वतः आ जाएगा।',
+                    'एक बार आगे बढ़ने के बाद पिछले प्रश्न पर वापस नहीं जाया जा सकता।',
+                    'सभी प्रश्न पूरे करने के बाद ‘जमा करें’ बटन पर क्लिक करें।',
+                    'प्रतियोगिता पूरी होने के बाद अपना स्कोर/परिणाम एवं प्रमाणपत्र प्राप्त करें।',
+                  ]
+                : [
+                    'Read each question carefully and choose the correct option from A, B, C, or D.',
+                    'Answering all questions is mandatory.',
+                    'Each question has a countdown timer, after which the next question will automatically appear.',
+                    'Once you move forward, you cannot go back to previous questions.',
+                    'Click the "Submit" button after completing all questions.',
+                    'View and download your score card and certificate after completion.',
+                  ]
+              ).map((rule, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100"
+                >
+                  <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    {i + 1}
+                  </span>
+                  <span className="font-medium text-slate-700 text-xs leading-relaxed">{rule}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        <div className="pt-2 text-right">
+        {/* Modal Footer */}
+        <div className="pt-2 border-t border-slate-100 flex justify-end flex-shrink-0">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition"
+            className="px-6 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-xs"
           >
             {t.modalClose}
           </button>
@@ -153,6 +144,10 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
       </div>
     </div>
   );
+};
+
+export const AboutModal: React.FC<InstructionsModalProps> = (props) => {
+  return <InstructionsModal {...props} />;
 };
 
 interface ContactModalProps {

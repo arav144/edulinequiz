@@ -29,7 +29,9 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   const [downloadingImg, setDownloadingImg] = useState(false);
 
   const studentDisplayName = submissionResult.studentName || 'Student';
-  const displayClass = submissionResult.className || classNameVal || 'Class 8';
+  const rawClass = submissionResult.className || classNameVal || '8';
+  // Remove 'Class' or 'कक्षा' prefix since 'कक्षा:' is already printed on the certificate template
+  const displayClass = rawClass.replace(/^(class|कक्षा)\s*/i, '').trim() || rawClass;
   const displaySchool = submissionResult.schoolName || schoolNameVal || 'विद्यालय';
   const getFormatDate = (val: any) => {
     try {
@@ -101,9 +103,9 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
       ctx.textAlign = 'left';
       ctx.fillText(displaySchool, W * 0.56, H * 0.635);
 
-      // 4. Score: Marks
+      // 4. Score: Marks (Clean font sizing)
       ctx.textAlign = 'center';
-      ctx.font = 'bold 26px "JetBrains Mono", monospace';
+      ctx.font = 'bold 22px "JetBrains Mono", monospace';
       ctx.fillText(`${submissionResult.score} / ${submissionResult.totalQuestions}`, W * 0.268, H * 0.732);
 
       // 5. Score: Percentage
@@ -158,14 +160,14 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             </span>
           </button>
 
-          {/* OPTION 2: Direct Image (JPG) Download Button */}
+          {/* OPTION 2: Direct Image (JPG) Download Button (Bright & clean, not dark) */}
           <button
             type="button"
             onClick={handleDownloadImage}
             disabled={downloadingImg}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 hover:brightness-105 text-amber-950 text-xs sm:text-sm font-extrabold border border-amber-400/80 shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
           >
-            <ImageIcon className="w-4 h-4 text-slate-900" />
+            <ImageIcon className="w-4 h-4 text-amber-900" />
             <span>
               {downloadingImg
                 ? (isHindiMode ? 'इमेज तैयार हो रही है...' : 'Generating Image...')
@@ -248,12 +250,12 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             className="absolute flex items-center justify-center pointer-events-none"
             style={{
               top: '71.2%',
-              left: '21.25%',
-              width: '11.1%',
+              left: '20.2%',
+              width: '13.0%',
               height: '3.6%',
             }}
           >
-            <span className="font-mono font-black text-slate-950 text-[11px] sm:text-sm md:text-base lg:text-lg">
+            <span className="font-mono font-black text-slate-950 text-[8px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap">
               {submissionResult.score} / {submissionResult.totalQuestions}
             </span>
           </div>

@@ -341,7 +341,7 @@ const downloadCertificatePdf = async (req, res, next) => {
       .text(titleText, 0, 85, { align: 'center', width: W });
 
     // ─── 4. Quiz Subtitle ────────────────────────────────────────────────────
-    const quizTitle = quiz?.name || (isHindi ? 'हिंदी दिवस क्विज़' : 'Assessment Quiz');
+    const quizTitle = quiz?.name || (isHindi ? 'हिंदी दिवस प्रतियोगिता' : 'Assessment Quiz');
     doc.fillColor('#1E293B').fontSize(16).font(fBold)
       .text(quizTitle, 0, 122, { align: 'center', width: W });
 

@@ -45,5 +45,5 @@ Follow these steps to deploy **Backend** and **Frontend** on Vercel so the stude
    | `NEXT_PUBLIC_API_URL` | *Your Backend URL from Step 1* (e.g. `https://edulinequiz-backend.vercel.app`) |
 
 5. Click **"Deploy"**.
-6. That's it! Open your frontend URL (`https://edulinequiz-frontend.vercel.app`) — students will see and start the **हिंदी दिवस क्विज़** without any error!
+6. That's it! Open your frontend URL (`https://edulinequiz-frontend.vercel.app`) — students will see and start the **हिंदी दिवस प्रतियोगिता** without any error!
 

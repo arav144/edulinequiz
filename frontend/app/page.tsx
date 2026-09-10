@@ -16,8 +16,16 @@ import { HeroSection } from '@/components/HeroSection';
 import { McqExamination } from '@/components/McqExamination';
 import { CertificateView } from '@/components/CertificateView';
 import { QuestionReview } from '@/components/QuestionReview';
+import { CertificateLoadingModal } from '@/components/CertificateLoadingModal';
+import { AlreadyAttemptedModal } from '@/components/AlreadyAttemptedModal';
 import {
-  AboutModal,
+  getDeviceStudentId,
+  hasAttemptedQuiz,
+  recordQuizAttempt,
+  getSavedAttempt,
+  ISavedAttempt,
+} from '@/components/attemptTracker';
+import {
   InstructionsModal,
   ContactModal,
   ConfirmSubmitModal,
@@ -33,14 +41,19 @@ import {
 
 export default function StudentPortalPage() {
   // Navigation & modals
-  const [showAboutModal, setShowAboutModal] = useState(false);
   const [showInstructionsModal, setShowInstructionsModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isCreatingCertificate, setIsCreatingCertificate] = useState(false);
+  const [showAlreadyAttemptedModal, setShowAlreadyAttemptedModal] = useState(false);
+  const [attemptedQuizData, setAttemptedQuizData] = useState<{
+    quizName: string;
+    savedAttempt: ISavedAttempt | null;
+  } | null>(null);
 
   // Student registration form state
   const [studentName, setStudentName] = useState('');
-  const [className, setClassName] = useState('Class 8');
+  const [className, setClassName] = useState('');
   const [section, setSection] = useState('A');
   const [studentId, setStudentId] = useState('');
   const [schoolName, setSchoolName] = useState('');
@@ -211,7 +224,8 @@ export default function StudentPortalPage() {
       setLoading(true);
       setError(null);
 
-      const effectiveStudentId = studentId.trim() || `STU${Date.now().toString().slice(-6)}`;
+      // Use persistent stable device student ID so attempts are reliably bound to this browser/device
+      const effectiveStudentId = studentId.trim() || getDeviceStudentId();
       if (!studentId.trim()) {
         setStudentId(effectiveStudentId);
       }
@@ -249,7 +263,7 @@ export default function StudentPortalPage() {
       if (!targetQuiz) {
         targetQuiz = {
           _id: '6aa135e7c6fef42f692e825f',
-          name: 'हिंदी दिवस क्विज़',
+          name: 'हिंदी दिवस प्रतियोगिता',
           subject: 'Hindi',
           numberOfQuestions: 10,
           passingPercentage: 50,
@@ -258,6 +272,18 @@ export default function StudentPortalPage() {
           status: 'Published',
           language: 'hi',
         } as IQuizSummary;
+      }
+
+      // Check Cookies & LocalStorage: Has this user already attempted this specific quiz?
+      if (hasAttemptedQuiz(targetQuiz._id)) {
+        const saved = getSavedAttempt(targetQuiz._id);
+        setAttemptedQuizData({
+          quizName: targetQuiz.name,
+          savedAttempt: saved,
+        });
+        setShowAlreadyAttemptedModal(true);
+        setLoading(false);
+        return;
       }
 
       const res = await apiVerifyStudent(
@@ -271,12 +297,17 @@ export default function StudentPortalPage() {
         }
       );
 
-      if (res.alreadyAttempted) {
-        setError(
-          lang === 'hi'
-            ? 'आप पहले ही यह क्विज़ दे चुके हैं। केवल एक प्रयास की अनुमति है।'
-            : (res.message || 'You have already attempted this quiz. Only one attempt is permitted.')
-        );
+      if (res.alreadyAttempted || res.code === 'ALREADY_ATTEMPTED') {
+        recordQuizAttempt(targetQuiz._id, {
+          studentName: studentName.trim(),
+          studentIdentifier: effectiveStudentId,
+        });
+        setAttemptedQuizData({
+          quizName: targetQuiz.name,
+          savedAttempt: getSavedAttempt(targetQuiz._id),
+        });
+        setShowAlreadyAttemptedModal(true);
+        setLoading(false);
         return;
       }
 
@@ -305,6 +336,19 @@ export default function StudentPortalPage() {
 
       const rollOrId = studentId.trim() || verifiedStudent?.studentIdentifier || '01';
       const res = await apiStartQuiz(quiz._id, rollOrId);
+
+      if (res.code === 'ALREADY_ATTEMPTED' || res.alreadyAttempted) {
+        recordQuizAttempt(quiz._id, {
+          studentName: studentName.trim(),
+          studentIdentifier: rollOrId,
+        });
+        setAttemptedQuizData({
+          quizName: quiz.name,
+          savedAttempt: getSavedAttempt(quiz._id),
+        });
+        setShowAlreadyAttemptedModal(true);
+        return;
+      }
 
       const questionList = res.questions || res.data?.questions || [];
       if (res.success && questionList.length > 0) {
@@ -347,17 +391,19 @@ export default function StudentPortalPage() {
   };
 
   // -------------------------------------------------------------
-  // Final Submission
+  // Final Submission with 2-second Certificate Creation Screen
   // -------------------------------------------------------------
   const handleConfirmSubmit = async () => {
     if (!selectedQuiz) return;
     try {
       setSubmitting(true);
       setShowConfirmModal(false);
+      setIsCreatingCertificate(true);
       setTimerActive(false);
 
       const rollOrId = studentId.trim() || verifiedStudent?.studentIdentifier || '01';
-      const res = await apiSubmitAttempt(selectedQuiz._id, {
+      
+      const submitPromise = apiSubmitAttempt(selectedQuiz._id, {
         studentIdentifier: rollOrId,
         name: studentName.trim() || verifiedStudent?.name || 'Student',
         className: className || verifiedStudent?.className,
@@ -366,8 +412,29 @@ export default function StudentPortalPage() {
         answers,
       });
 
+      // Enforce at least 2 full seconds for the certificate creation loading screen
+      const delayPromise = new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const [res] = await Promise.all([submitPromise, delayPromise]);
+
       const submissionData = res.data || res.result;
       if (res.success && submissionData) {
+        // Record in Cookies & LocalStorage that this specific quiz was completed
+        recordQuizAttempt(selectedQuiz._id, {
+          attemptId: submissionData.attemptId,
+          studentName: submissionData.studentName || studentName.trim(),
+          studentIdentifier: rollOrId,
+          submittedAt: submissionData.submittedAt,
+          score: submissionData.score,
+          totalQuestions: submissionData.totalQuestions,
+          percentage: submissionData.percentage,
+          result: submissionData.result,
+          certificateId: submissionData.certificateId,
+          className: submissionData.className || className,
+          schoolName: submissionData.schoolName || schoolName,
+          review: submissionData.review,
+        });
+
         setSubmissionResult(submissionData);
         setPhase('result');
       } else {
@@ -376,6 +443,7 @@ export default function StudentPortalPage() {
     } catch (err: any) {
       setError(err.message || 'Failed to evaluate quiz submission');
     } finally {
+      setIsCreatingCertificate(false);
       setSubmitting(false);
     }
   };
@@ -431,7 +499,6 @@ export default function StudentPortalPage() {
         <Header
           t={t}
           isQuizActive={phase === 'taking_quiz'}
-          onOpenAbout={() => setShowAboutModal(true)}
           onOpenInstructions={() => setShowInstructionsModal(true)}
           onOpenContact={() => setShowContactModal(true)}
           onNavigateHome={() => setPhase('registration')}
@@ -543,7 +610,8 @@ export default function StudentPortalPage() {
 
           {/* VIEW 4: CERTIFICATE & REVIEW (MATCHES IMAGE 2) */}
           {phase === 'result' && submissionResult && (
-            <div className="max-w-4xl mx-auto w-full space-y-8 animate-fadeIn">
+            <div className="max-w-4xl mx-auto w-full space-y-8 animate-fadeIn pb-12">
+              {/* 1. The Certificate */}
               <CertificateView
                 submissionResult={submissionResult}
                 lang={lang}
@@ -554,18 +622,75 @@ export default function StudentPortalPage() {
                 onDownloadPdf={handleDownloadPdf}
                 onBackToDashboard={() => setPhase('registration')}
               />
+
+              {/* 2. Question-by-Question Review (कौन-से सही, कौन-से गलत) */}
+              <QuestionReview
+                review={
+                  submissionResult.review && submissionResult.review.length > 0
+                    ? submissionResult.review
+                    : questions.map((q) => {
+                        const studentChoice = answers[q._id] || 'Unanswered';
+                        const correctAnswer = (q as any).correctAnswer || 'A';
+                        return {
+                          questionId: q._id,
+                          question: q.question,
+                          options: q.options,
+                          studentChoice,
+                          correctAnswer,
+                          isCorrect: studentChoice === correctAnswer,
+                        };
+                      })
+                }
+                lang={lang}
+              />
             </div>
           )}
         </main>
 
-        {/* MODALS */}
-        <AboutModal
-          isOpen={showAboutModal}
-          onClose={() => setShowAboutModal(false)}
-          quiz={currentSubjectQuiz}
+        {/* 2-Second Certificate Creation Loading Screen */}
+        <CertificateLoadingModal
+          isOpen={isCreatingCertificate}
           lang={lang}
+          studentName={studentName || verifiedStudent?.name}
         />
 
+        {/* Modal: Quiz Already Attempted Notice */}
+        <AlreadyAttemptedModal
+          isOpen={showAlreadyAttemptedModal}
+          onClose={() => setShowAlreadyAttemptedModal(false)}
+          lang={lang}
+          quizName={attemptedQuizData?.quizName}
+          savedAttempt={attemptedQuizData?.savedAttempt}
+          onViewPreviousCertificate={
+            attemptedQuizData?.savedAttempt
+              ? () => {
+                  const saved = attemptedQuizData.savedAttempt;
+                  if (saved) {
+                    setSubmissionResult({
+                      attemptId: saved.attemptId,
+                      studentName: saved.studentName,
+                      studentIdentifier: saved.studentIdentifier,
+                      className: saved.className || className || '8',
+                      section: section || 'A',
+                      schoolName: saved.schoolName || schoolName || '',
+                      quizName: attemptedQuizData.quizName || 'हिंदी दिवस प्रतियोगिता',
+                      score: saved.score ?? 0,
+                      totalQuestions: saved.totalQuestions ?? 10,
+                      percentage: saved.percentage ?? 0,
+                      result: saved.result || 'Pass',
+                      submittedAt: saved.submittedAt,
+                      certificateId: saved.certificateId,
+                      review: saved.review || [],
+                    });
+                    setShowAlreadyAttemptedModal(false);
+                    setPhase('result');
+                  }
+                }
+              : undefined
+          }
+        />
+
+        {/* MODALS */}
         <InstructionsModal
           isOpen={showInstructionsModal}
           onClose={() => setShowInstructionsModal(false)}

@@ -47,9 +47,6 @@ export const McqExamination: React.FC<McqExaminationProps> = ({
           <span className="text-xs font-mono font-black px-3.5 py-1.5 rounded-xl bg-amber-100 text-amber-950 border border-amber-400/80 shadow-xs">
             {t.questionCounter} {currentIndex + 1} / {totalQuestions}
           </span>
-          <span className="text-xs font-bold text-slate-800 hidden sm:inline">
-            {selectedQuiz?.name}
-          </span>
         </div>
 
         {/* Live Countdown Pill */}

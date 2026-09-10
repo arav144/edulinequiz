@@ -6,13 +6,13 @@ import { Menu, X } from 'lucide-react';
 interface HeaderProps {
   t: {
     navHome: string;
-    navAbout: string;
+    navAbout?: string;
     navInstructions: string;
     navContact: string;
   };
   isQuizActive?: boolean;
   onNavigateHome: () => void;
-  onOpenAbout: () => void;
+  onOpenAbout?: () => void;
   onOpenInstructions: () => void;
   onOpenContact: () => void;
 }
@@ -69,27 +69,32 @@ export const Header: React.FC<HeaderProps> = ({
           />
         </div>
 
-        {/* Center: "हिंदी की बात,  क्विज़ के साथ" when Quiz is Active */}
+        {/* Center: "हिंदी की बात, क्विज़ के साथ" image when Quiz is Active */}
         {isQuizActive && (
-          <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 text-center pointer-events-none select-none px-2 max-w-[65vw] sm:max-w-none z-10">
-            <span className="text-[#7A1818] font-black text-base sm:text-lg md:text-xl lg:text-2xl leading-none tracking-tight sm:tracking-wide font-hindi whitespace-nowrap drop-shadow-xs"
-              style={{
-                fontWeight: 900,
-                WebkitTextStroke: '0.4px #7A1818',
-              }}
-            >
-              हिंदी की बात,&nbsp;&nbsp;क्विज़ के साथ
-            </span>
+          <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 text-center pointer-events-none select-none px-2 max-w-[60vw] sm:max-w-[50vw] md:max-w-none z-10 flex items-center justify-center">
+            <img
+              src="/img/headerfont.png"
+              alt="हिंदी की बात, क्विज़ के साथ"
+              className="h-6 sm:h-8 md:h-10 w-auto max-w-full object-contain drop-shadow-xs"
+            />
           </div>
         )}
 
-        {/* Right side content */}
+        {/* Right Navigation */}
         {isQuizActive ? (
-          /* Empty balance spacer to preserve flex symmetry */
-          <div className="w-8 sm:w-10 md:w-12 shrink-0" aria-hidden="true" />
+          // Quiz Mode Header Action
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onNavigateHome}
+              className="text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-3.5 py-1.5 rounded-lg border border-rose-200 transition-colors"
+            >
+              Exit Quiz
+            </button>
+          </div>
         ) : (
           <>
-            {/* Desktop Navigation: 4 Buttons */}
+            {/* Desktop Navigation: 3 Buttons */}
             <nav className="hidden md:flex items-center gap-2 lg:gap-3 py-1">
               <button
                 type="button"
@@ -98,15 +103,6 @@ export const Header: React.FC<HeaderProps> = ({
                 style={NAV_BTN_STYLE}
               >
                 <span className="relative z-10 px-0.5">{t.navHome}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={onOpenAbout}
-                className={NAV_BTN_CLASS}
-                style={NAV_BTN_STYLE}
-              >
-                <span className="relative z-10 px-0.5">{t.navAbout}</span>
               </button>
 
               <button
@@ -158,15 +154,6 @@ export const Header: React.FC<HeaderProps> = ({
               style={NAV_BTN_STYLE}
             >
               <span className="relative z-10">{t.navHome}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleMobileNav(onOpenAbout)}
-              className="relative w-full max-w-[260px] h-10 text-white font-bold text-sm bg-no-repeat bg-center flex items-center justify-center cursor-pointer select-none transition-transform active:scale-95 drop-shadow-sm"
-              style={NAV_BTN_STYLE}
-            >
-              <span className="relative z-10">{t.navAbout}</span>
             </button>
 
             <button
