@@ -27,16 +27,17 @@ export function formatQuizTitle(rawName: string = '', _selectedClassName?: strin
 /**
  * Formats dates into "17 Aug, 2026" / "30 Sep, 2026" format
  */
-export function formatDisplayDate(dateInput?: string | Date, fallback: string = '30 Sep, 2026'): string {
+export function formatDisplayDate(dateInput?: string | Date, fallback: string = '13 Sep, 2026'): string {
   if (!dateInput) return fallback;
   try {
     const d = new Date(dateInput);
     if (isNaN(d.getTime())) return fallback;
     const day = d.getDate();
+    const strDay = day < 10 ? `0${day}` : `${day}`;
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const month = months[d.getMonth()];
     const year = d.getFullYear();
-    return `${day} ${month}, ${year}`;
+    return `${strDay} ${month}, ${year}`;
   } catch {
     return fallback;
   }

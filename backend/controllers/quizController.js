@@ -71,8 +71,8 @@ const getAvailableQuizzes = async (req, res, next) => {
       const startDate = quiz.startDate || new Date('2026-08-15T00:00:00.000Z');
       const endDate = quiz.endDate || new Date('2026-09-30T23:59:59.000Z');
       const totalScore = quiz.totalScore || (quiz.numberOfQuestions ? quiz.numberOfQuestions * 2 : 20);
-      const timing = quiz.timing || '00:10 Hours';
-      const durationMinutes = quiz.durationMinutes || 10;
+      const timing = quiz.timing || '00:30 Hours';
+      const durationMinutes = quiz.durationMinutes || 30;
       const bannerUrl = quiz.bannerUrl || '/img/hindidiwas.png';
       
       // Control whether timing box should be shown on card

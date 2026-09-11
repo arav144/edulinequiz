@@ -79,7 +79,7 @@ export const QuizCard: React.FC<QuizCardProps> = ({
       const total = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
       if (total > 0) return total;
     }
-    return 10;
+    return 30;
   })();
 
   return (
@@ -92,7 +92,7 @@ export const QuizCard: React.FC<QuizCardProps> = ({
             alt={displayTitle}
             onError={(e) => {
               const target = e.currentTarget;
-              if (!target.src.includes('/img/hindidiwas.png')) {
+              if (!target.src.includes('/img/hindidiwas.png') && !target.src.includes('/img/gandhijayanti.png')) {
                 target.src = '/img/hindidiwas.png';
               }
             }}
