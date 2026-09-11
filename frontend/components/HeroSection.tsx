@@ -4,8 +4,10 @@ import {
   Building2,
   Award,
   ChevronDown,
+  ArrowLeft,
 } from 'lucide-react';
 import { IQuizSummary, Language, IClassLevel } from './types';
+import { formatQuizTitle } from './quizUtils';
 
 interface HeroSectionProps {
   t: any;
@@ -27,6 +29,7 @@ interface HeroSectionProps {
   availableSubjects: string[];
   currentSubjectQuiz: IQuizSummary | null;
   loading: boolean;
+  onBack?: () => void;
   onSubmit: (e: React.FormEvent) => void;
 }
 
@@ -40,7 +43,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   classes = [],
   schoolName,
   setSchoolName,
+  currentSubjectQuiz,
   loading,
+  onBack,
   onSubmit,
 }) => {
   // Mobile 3-Second Poster Splash State (< 1024px)
@@ -127,12 +132,27 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       {/* LEFT COLUMN: REGISTRATION FORM CARD */}
       <div className="lg:col-span-5 w-full">
         <div className="bg-white/98 backdrop-blur-2xl rounded-[32px] p-6 sm:p-8 shadow-xl hover:shadow-2xl transition-shadow duration-300 text-slate-800 border border-slate-100/90 relative overflow-hidden max-w-md mx-auto">
+          {/* Back to Competitions Button */}
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-950 mb-3 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{lang === 'hi' ? '← प्रतियोगिताएं देखें' : '← Back to Competitions'}</span>
+            </button>
+          )}
+
           {/* Top Header Icon */}
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-indigo-50/90 to-indigo-100/80 border border-indigo-200/60 text-indigo-600 flex items-center justify-center mx-auto mb-3.5 shadow-sm ring-4 ring-indigo-50/50">
             <GraduationCap className="w-8 h-8" />
           </div>
 
           <div className="text-center space-y-1 mb-6">
+            <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-hindi inline-block mb-1 shadow-xs">
+              {formatQuizTitle(currentSubjectQuiz?.name, className)}
+            </span>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-hindi">
               {t.formTitle}
             </h2>
@@ -178,7 +198,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   }`}
                 >
                   <option value="" disabled>
-                    {t.selectClass}
+                    {lang === 'hi' ? '-- अपनी कक्षा चुनें --' : '-- Select Your Class --'}
                   </option>
                   {classes && classes.length > 0 ? (
                     classes.map((c) => (

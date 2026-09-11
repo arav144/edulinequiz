@@ -8,6 +8,10 @@ const {
   getAdminQuizById,
   updateQuiz,
   deleteQuiz,
+  updateQuizSchedule,
+  updateBatchQuizSchedule,
+  getScheduledBatches,
+  removeScheduledBatch,
   getAllQuestions,
   addQuestion,
   updateQuestion,
@@ -35,8 +39,12 @@ router.get('/stats', getDashboardStats);
 // Quiz Management
 router.get('/quizzes', getAdminQuizzes);
 router.post('/quizzes', createQuiz);
+router.get('/quizzes/schedule/batches', getScheduledBatches);
+router.delete('/quizzes/schedule/batch/:batchId', removeScheduledBatch);
+router.post('/quizzes/schedule/batch', updateBatchQuizSchedule);
 router.get('/quizzes/:id', getAdminQuizById);
 router.put('/quizzes/:id', updateQuiz);
+router.patch('/quizzes/:id/schedule', updateQuizSchedule);
 router.delete('/quizzes/:id', deleteQuiz);
 router.get('/quizzes/:id/attempts', getQuizAttempts);
 

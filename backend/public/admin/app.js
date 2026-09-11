@@ -83,7 +83,7 @@ function fmtDateTime(d) {
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
 function showSection(name) {
-  ['dashboard', 'classes', 'quizzes', 'questions', 'subjects', 'results'].forEach(s => {
+  ['dashboard', 'classes', 'quizzes', 'schedule', 'questions', 'subjects', 'results'].forEach(s => {
     const el = document.getElementById(`section-${s}`);
     const nav = document.getElementById(`nav-${s}`);
     if (el) el.classList.add('hidden');
@@ -92,14 +92,22 @@ function showSection(name) {
   document.getElementById(`section-${name}`).classList.remove('hidden');
   document.getElementById(`nav-${name}`).classList.add('active');
   document.getElementById('pageTitle').textContent = {
-    dashboard: 'Dashboard', classes: 'Class Management (कक्षा प्रबंधन)',
+    dashboard: 'Dashboard',
+    classes: 'Class Management',
     quizzes: 'Quiz Management',
-    questions: 'Question Management', subjects: 'Subject Management', results: 'Student Results'
+    schedule: 'Quiz Scheduling & Portal Visibility',
+    questions: 'Question Management',
+    subjects: 'Subject Management',
+    results: 'Student Results'
   }[name];
   currentSection = name;
   if (name === 'dashboard') loadDashboard();
   if (name === 'classes') loadClasses();
   if (name === 'quizzes') loadQuizzes();
+  if (name === 'schedule') {
+    loadScheduleQuizzes();
+    loadScheduledBatches();
+  }
   if (name === 'questions') loadQuestions();
   if (name === 'subjects') loadSubjects();
   if (name === 'results') loadResults();
@@ -323,6 +331,22 @@ async function openQuizModal(quiz = null) {
   document.getElementById('quizDescription').value = isEdit ? (fullQuiz.description || '') : '';
   document.getElementById('quizInstructions').value = isEdit ? (fullQuiz.instructions || '') : '';
   document.getElementById('quizContactInfo').value = isEdit ? (fullQuiz.contactInfo || '') : '';
+
+  const elScore = document.getElementById('quizTotalScore');
+  if (elScore) elScore.value = isEdit ? (fullQuiz.totalScore || 20) : 20;
+
+  const elBanner = document.getElementById('quizBannerUrl');
+  const elPreset = document.getElementById('quizBannerPreset');
+  const currentBanner = isEdit && fullQuiz.bannerUrl ? fullQuiz.bannerUrl : '/img/hindidiwas.png';
+  if (elBanner) elBanner.value = currentBanner;
+  if (elPreset) {
+    if (['/img/hindidiwas.png', '/admin/Edulinenew.jpg'].includes(currentBanner)) {
+      elPreset.value = currentBanner;
+    } else {
+      elPreset.value = 'custom';
+    }
+  }
+
   document.getElementById('quizModalTitle').textContent = isEdit ? 'Edit Quiz & Questions' : 'Create Quiz & Add Questions';
   document.getElementById('quizPublishBtnLabel').textContent = isEdit ? 'Save & Publish' : 'Publish Quiz';
 
@@ -744,6 +768,9 @@ async function saveQuizBuilder(targetStatus = 'Draft') {
     }
   }
 
+  const totalScore = Number(document.getElementById('quizTotalScore')?.value) || 20;
+  const bannerUrl = document.getElementById('quizBannerUrl')?.value?.trim() || '/img/hindidiwas.png';
+
   // Payload
   const payload = {
     name,
@@ -757,6 +784,8 @@ async function saveQuizBuilder(targetStatus = 'Draft') {
     instructions,
     contactInfo,
     status: targetStatus,
+    totalScore,
+    bannerUrl,
     questions: builderQuestions.map(q => ({
       question: q.question.trim(),
       options: {
@@ -816,6 +845,586 @@ async function deleteQuiz(id) {
       if (currentSection === 'dashboard') loadDashboard();
     } catch (e) { toast(e.message, 'error'); }
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SCHEDULE & MULTI-SELECT QUIZ CONTROLLER
+// ═══════════════════════════════════════════════════════════════════
+let selectedQuizIds = new Set();
+let editingBatchId = null;
+let isQuizDropdownOpen = false;
+
+function toggleQuizDropdownMenu() {
+  const menu = document.getElementById('quizDropdownMenu');
+  if (!menu) return;
+  isQuizDropdownOpen = !isQuizDropdownOpen;
+  if (isQuizDropdownOpen) {
+    menu.classList.remove('hidden');
+  } else {
+    menu.classList.add('hidden');
+  }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const trigger = document.getElementById('quizDropdownTrigger');
+  const menu = document.getElementById('quizDropdownMenu');
+  if (trigger && menu && !trigger.contains(e.target) && !menu.contains(e.target)) {
+    menu.classList.add('hidden');
+    isQuizDropdownOpen = false;
+  }
+});
+
+function handleBannerDragOver(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const zone = document.getElementById('bulkBannerDropzone');
+  if (zone) zone.classList.add('border-indigo-500', 'bg-indigo-950/40');
+}
+
+function handleBannerDragLeave(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const zone = document.getElementById('bulkBannerDropzone');
+  if (zone) zone.classList.remove('border-indigo-500', 'bg-indigo-950/40');
+}
+
+function handleBannerDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const zone = document.getElementById('bulkBannerDropzone');
+  if (zone) zone.classList.remove('border-indigo-500', 'bg-indigo-950/40');
+  const files = e.dataTransfer?.files;
+  if (files && files.length > 0) {
+    uploadBannerFile(files[0]);
+  }
+}
+
+function handleBannerFileSelect(e) {
+  const file = e.target.files?.[0];
+  if (file) {
+    uploadBannerFile(file);
+  }
+}
+
+async function uploadBannerFile(file) {
+  if (!file || !file.type.startsWith('image/')) {
+    toast('Please select an image file (JPG, PNG, WebP).', 'error');
+    return;
+  }
+
+  const statusEl = document.getElementById('bulkBannerStatus');
+  const nameEl = document.getElementById('bulkBannerPreviewName');
+  const imgEl = document.getElementById('bulkBannerPreviewImg');
+  const inputEl = document.getElementById('bulkBannerUrl');
+
+  if (statusEl) statusEl.textContent = 'Uploading…';
+  if (nameEl) nameEl.textContent = file.name;
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const data = await API('POST', '/api/admin/upload/image', formData, true);
+    const uploadedUrl = data.url || data.imageUrl || data.secure_url;
+    if (!uploadedUrl) throw new Error('No URL returned from server.');
+
+    if (inputEl) inputEl.value = uploadedUrl;
+    if (imgEl) imgEl.src = uploadedUrl;
+    const presetEl = document.getElementById('bulkBannerPreset');
+    if (presetEl) presetEl.value = 'upload';
+    if (statusEl) statusEl.textContent = '✓ Uploaded';
+    toast('Thumbnail image uploaded successfully!', 'success');
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Upload failed';
+    toast('Image upload failed: ' + err.message, 'error');
+  }
+}
+
+function handleBulkBannerPresetChange(val) {
+  const urlInput = document.getElementById('bulkBannerUrl');
+  const img = document.getElementById('bulkBannerPreviewImg');
+  const nameEl = document.getElementById('bulkBannerPreviewName');
+  if (val === 'upload') {
+    document.getElementById('bulkBannerFileInput').click();
+    return;
+  }
+  if (val === 'custom') {
+    if (urlInput) {
+      urlInput.focus();
+      urlInput.select();
+    }
+    return;
+  }
+  if (urlInput) urlInput.value = val;
+  if (img) img.src = val;
+  if (nameEl) nameEl.textContent = val.includes('Eduline') ? 'Eduline Banner' : 'Hindi Diwas Banner';
+}
+
+function handleBannerUrlManualInput(val) {
+  const clean = val.trim();
+  const img = document.getElementById('bulkBannerPreviewImg');
+  const nameEl = document.getElementById('bulkBannerPreviewName');
+  if (clean && img) {
+    img.src = clean;
+    if (nameEl) nameEl.textContent = 'Custom URL';
+  }
+}
+
+async function loadScheduleQuizzes() {
+  const itemsContainer = document.getElementById('quizDropdownItems');
+  const label = document.getElementById('quizDropdownLabel');
+  if (itemsContainer) itemsContainer.innerHTML = '<div class="p-3 text-xs text-slate-500 text-center">Loading quizzes...</div>';
+
+  try {
+    const data = await API('GET', '/api/admin/quizzes');
+    const quizzes = data.quizzes || [];
+    allQuizzes = quizzes;
+
+    if (!quizzes.length) {
+      if (itemsContainer) itemsContainer.innerHTML = '<div class="p-3 text-xs text-slate-500 text-center">No quizzes created yet.</div>';
+      return;
+    }
+
+    const now = new Date();
+
+    // Calculate live status counts
+    let countOngoing = 0;
+    let countUpcoming = 0;
+    let countPast = 0;
+
+    quizzes.forEach((q) => {
+      const sDateObj = q.startDate ? new Date(q.startDate) : null;
+      const eDateObj = q.endDate ? new Date(q.endDate) : null;
+      if (q.status === 'Closed' || (eDateObj && eDateObj < now)) {
+        countPast++;
+      } else if (sDateObj && sDateObj > now) {
+        countUpcoming++;
+      } else {
+        countOngoing++;
+      }
+    });
+
+    const elO = document.getElementById('schedCountOngoing');
+    const elU = document.getElementById('schedCountUpcoming');
+    const elP = document.getElementById('schedCountPast');
+    if (elO) elO.textContent = `${countOngoing} Live`;
+    if (elU) elU.textContent = `${countUpcoming} Queued`;
+    if (elP) elP.textContent = `${countPast} Closed`;
+
+    // Default pre-fill for bulk inputs if not yet filled
+    const startInput = document.getElementById('bulkStartDate');
+    const endInput = document.getElementById('bulkEndDate');
+    if (startInput && !startInput.value) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(9, 0, 0, 0);
+      startInput.value = formatDateTimeForInput(tomorrow);
+    }
+    if (endInput && !endInput.value) {
+      const tomorrowEnd = new Date(now);
+      tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+      tomorrowEnd.setHours(23, 59, 0, 0);
+      endInput.value = formatDateTimeForInput(tomorrowEnd);
+    }
+
+    // Render items inside dropdown
+    if (itemsContainer) {
+      itemsContainer.innerHTML = quizzes.map((q) => {
+        const isChecked = selectedQuizIds.has(q._id);
+        const sDateObj = q.startDate ? new Date(q.startDate) : null;
+        const eDateObj = q.endDate ? new Date(q.endDate) : null;
+        let liveStatus = 'Ongoing';
+        let statusBadgeCls = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+        if (q.status === 'Closed' || (eDateObj && eDateObj < now)) {
+          liveStatus = 'Past';
+          statusBadgeCls = 'bg-slate-700 text-slate-300 border-slate-600';
+        } else if (sDateObj && sDateObj > now) {
+          liveStatus = 'Upcoming';
+          statusBadgeCls = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+        }
+
+        return `
+        <label class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-800 cursor-pointer transition select-none ${isChecked ? 'bg-indigo-950/40' : ''}">
+          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <input type="checkbox" value="${q._id}" ${isChecked ? 'checked' : ''} onchange="toggleSelectQuiz('${q._id}', this.checked)" class="w-4 h-4 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer sched-quiz-cb">
+            <div class="truncate">
+              <span class="text-xs font-semibold text-white block truncate">${esc(q.name)}</span>
+              <span class="text-[10px] text-slate-400 block">${q.targetClass && q.targetClass !== 'All' ? esc(q.targetClass) : 'All Classes'} · ${esc(q.timing || '00:10 Hours')}</span>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${statusBadgeCls}">
+            ${liveStatus}
+          </span>
+        </label>
+        `;
+      }).join('');
+    }
+
+    updateSelectedCountUI();
+  } catch (err) {
+    if (itemsContainer) itemsContainer.innerHTML = `<div class="p-3 text-xs text-rose-400 text-center">Error: ${err.message}</div>`;
+  }
+}
+
+function resetScheduleForm(silent = false) {
+  editingBatchId = null;
+  selectedQuizIds.clear();
+
+  const cbs = document.querySelectorAll('.sched-quiz-cb');
+  cbs.forEach((cb) => { cb.checked = false; });
+
+  const titleInput = document.getElementById('bulkCompetitionTitle');
+  if (titleInput) titleInput.value = '';
+
+  const now = new Date();
+  const startInput = document.getElementById('bulkStartDate');
+  const endInput = document.getElementById('bulkEndDate');
+  if (startInput) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    startInput.value = formatDateTimeForInput(tomorrow);
+  }
+  if (endInput) {
+    const tomorrowEnd = new Date(now);
+    tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+    tomorrowEnd.setHours(23, 59, 0, 0);
+    endInput.value = formatDateTimeForInput(tomorrowEnd);
+  }
+
+  const timingInput = document.getElementById('bulkTimingText');
+  if (timingInput) timingInput.value = '00:10 Hours';
+
+  const urlInput = document.getElementById('bulkBannerUrl');
+  if (urlInput) urlInput.value = '/img/hindidiwas.png';
+
+  const img = document.getElementById('bulkBannerPreviewImg');
+  if (img) img.src = '/img/hindidiwas.png';
+
+  const nameEl = document.getElementById('bulkBannerPreviewName');
+  if (nameEl) nameEl.textContent = 'Hindi Diwas Banner';
+
+  const presetEl = document.getElementById('bulkBannerPreset');
+  if (presetEl) presetEl.value = '/img/hindidiwas.png';
+
+  const editBanner = document.getElementById('editingBatchBanner');
+  if (editBanner) editBanner.classList.add('hidden');
+
+  const btnLabel = document.getElementById('applyBatchBtnLabel');
+  if (btnLabel) btnLabel.textContent = 'Save & Apply Schedule';
+
+  updateSelectedCountUI();
+
+  if (!silent) {
+    toast('Schedule form cleared. You can now choose quizzes to schedule a new competition.', 'info');
+  }
+}
+
+function formatDateTimeForInput(date) {
+  if (!date || isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toggleSelectQuiz(id, isChecked) {
+  if (isChecked) {
+    selectedQuizIds.add(id);
+  } else {
+    selectedQuizIds.delete(id);
+  }
+  updateSelectedCountUI();
+}
+
+function selectAllQuizzes(select) {
+  const cbs = document.querySelectorAll('.sched-quiz-cb');
+  cbs.forEach((cb) => {
+    cb.checked = select;
+    const id = cb.value;
+    if (select) {
+      selectedQuizIds.add(id);
+    } else {
+      selectedQuizIds.delete(id);
+    }
+  });
+  updateSelectedCountUI();
+}
+
+function updateSelectedCountUI() {
+  const badge = document.getElementById('selectedCountBadge');
+  const label = document.getElementById('quizDropdownLabel');
+  const pills = document.getElementById('selectedQuizPills');
+  const count = selectedQuizIds.size;
+
+  if (badge) {
+    badge.textContent = `${count} Selected`;
+    badge.className = count > 0
+      ? 'px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-600 text-white shadow-sm'
+      : 'px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700 text-slate-300';
+  }
+
+  if (label) {
+    if (count === 0) {
+      label.textContent = 'Choose quizzes from list...';
+      label.className = 'text-slate-400 truncate';
+    } else if (count === 1) {
+      const selectedId = Array.from(selectedQuizIds)[0];
+      const match = allQuizzes.find(q => q._id === selectedId);
+      label.textContent = match ? match.name : '1 Quiz Selected';
+      label.className = 'text-white font-medium truncate';
+    } else {
+      label.textContent = `${count} quizzes selected`;
+      label.className = 'text-white font-medium truncate';
+    }
+  }
+
+  if (pills) {
+    if (count === 0) {
+      pills.innerHTML = '<span class="text-xs text-slate-500 italic">No quizzes selected yet. Click the dropdown above to choose.</span>';
+    } else {
+      pills.innerHTML = Array.from(selectedQuizIds).map(id => {
+        const q = allQuizzes.find(item => item._id === id);
+        const name = q ? q.name : id;
+        return `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-200 text-xs font-medium">
+          <span class="truncate max-w-[200px]">${esc(name)}</span>
+          <button type="button" onclick="removeSelectedQuiz('${id}')" class="text-indigo-400 hover:text-white font-bold text-xs">✕</button>
+        </span>
+        `;
+      }).join('');
+    }
+  }
+
+  const titleInput = document.getElementById('bulkCompetitionTitle');
+  if (titleInput && selectedQuizIds.size > 0) {
+    const firstId = Array.from(selectedQuizIds)[0];
+    const match = allQuizzes.find((q) => q._id === firstId);
+    if (match) {
+      const cleanBase = (match.name || '')
+        .replace(/\s*[-–—]\s*(कक्षा|Class)\s*\d+/i, '')
+        .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+        .replace(/क्विज़/g, 'प्रतियोगिता')
+        .trim();
+      titleInput.placeholder = cleanBase || 'e.g. हिंदी दिवस प्रतियोगिता';
+      if (!titleInput.value) {
+        titleInput.value = cleanBase;
+      }
+    }
+  }
+}
+
+function removeSelectedQuiz(id) {
+  selectedQuizIds.delete(id);
+  const cb = document.querySelector(`.sched-quiz-cb[value="${id}"]`);
+  if (cb) cb.checked = false;
+  updateSelectedCountUI();
+}
+
+async function applyBatchSchedule() {
+  if (selectedQuizIds.size === 0) {
+    toast('Please select at least one quiz from the dropdown.', 'error');
+    const trigger = document.getElementById('quizDropdownTrigger');
+    if (trigger) trigger.focus();
+    return;
+  }
+
+  const startVal = document.getElementById('bulkStartDate').value;
+  const endVal = document.getElementById('bulkEndDate').value;
+  const timingVal = document.getElementById('bulkTimingText').value.trim();
+  const bannerUrl = document.getElementById('bulkBannerUrl')?.value?.trim() || '/img/hindidiwas.png';
+  const competitionTitle = document.getElementById('bulkCompetitionTitle')?.value?.trim() || '';
+
+  const showOnPortal = document.getElementById('bulkShowOnPortal').checked;
+  const showTiming = document.getElementById('bulkShowTiming').checked;
+  const btn = document.getElementById('applyBatchBtn');
+
+  if (!startVal) {
+    toast('Please select a Start Date & Time.', 'error');
+    document.getElementById('bulkStartDate').focus();
+    return;
+  }
+  if (!endVal) {
+    toast('Please select an End Date & Time.', 'error');
+    document.getElementById('bulkEndDate').focus();
+    return;
+  }
+
+  const startDate = new Date(startVal);
+  const endDate = new Date(endVal);
+
+  if (endDate <= startDate) {
+    toast('End Date & Time must be after Start Date & Time.', 'error');
+    return;
+  }
+
+  const origBtnText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = 'Applying Schedule…';
+
+  try {
+    const quizIdsArray = Array.from(selectedQuizIds);
+    const res = await API('POST', '/api/admin/quizzes/schedule/batch', {
+      quizIds: quizIdsArray,
+      batchId: editingBatchId || null,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      timing: timingVal || '00:10 Hours',
+      showTiming,
+      isFeaturedOnPortal: showOnPortal,
+      bannerUrl: bannerUrl || '/img/hindidiwas.png',
+      competitionTitle,
+      status: 'Published',
+    });
+
+    toast(res.message || 'Schedule applied successfully!', 'success');
+    resetScheduleForm(true); // Resets form cleanly so old quizzes are cleared and admin can add new quizzes
+    await loadScheduleQuizzes();
+    await loadScheduledBatches();
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origBtnText;
+  }
+}
+
+async function loadScheduledBatches() {
+  const container = document.getElementById('scheduledBatchesList');
+  if (!container) return;
+
+  try {
+    const res = await API('GET', '/api/admin/quizzes/schedule/batches');
+    const batches = res.batches || [];
+    if (!batches.length) {
+      container.innerHTML = `
+        <div class="p-8 text-center card col-span-full border border-slate-700/60 text-slate-400">
+          <p class="text-sm font-semibold text-white mb-1">No scheduled batches or competitions yet</p>
+          <p class="text-xs text-slate-500">Select multiple class quizzes above, set their date and banner, and click "Save & Apply Schedule".</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = batches.map((b) => {
+      const sDate = b.startDate ? new Date(b.startDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Immediate';
+      const eDate = b.endDate ? new Date(b.endDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'No Expiry';
+      
+      let badgeCls = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+      if (b.scheduleStatus === 'Past') badgeCls = 'bg-slate-700 text-slate-300 border-slate-600';
+      if (b.scheduleStatus === 'Upcoming') badgeCls = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+
+      const classTags = (b.quizzes || []).map((q) => {
+        const clsLabel = q.targetClass && q.targetClass !== 'All' ? q.targetClass : 'All';
+        return `<span class="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 font-medium">${esc(clsLabel)}</span>`;
+      }).join(' ');
+
+      return `
+        <div class="card p-4 border border-slate-700/80 bg-slate-800/90 rounded-2xl shadow-xl flex flex-col justify-between gap-3 relative overflow-hidden group hover:border-indigo-500/50 transition">
+          <div class="flex items-start gap-3.5">
+            <img src="${esc(b.bannerUrl || '/img/hindidiwas.png')}" alt="Thumb" class="w-20 h-14 object-cover rounded-xl border border-slate-700 bg-slate-900 shrink-0 shadow-md">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <h4 class="text-sm font-bold text-white truncate group-hover:text-indigo-300 transition">${esc(b.batchName)}</h4>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${badgeCls}">${b.scheduleStatus}</span>
+              </div>
+              <p class="text-[11px] text-emerald-400 font-medium flex items-center gap-1.5 mb-1.5">
+                <span>⭐ 1 Showcase Card on Portal</span>
+                <span class="text-slate-500">·</span>
+                <span class="text-slate-300">${b.quizCount} Class Quiz${b.quizCount > 1 ? 'zes' : ''}</span>
+              </p>
+              <div class="flex flex-wrap gap-1">
+                ${classTags}
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400">
+            <div class="space-y-0.5">
+              <div><span class="text-slate-500 font-medium">Schedule:</span> <span class="text-slate-200">${sDate} → ${eDate}</span></div>
+              <div><span class="text-slate-500 font-medium">Timing:</span> <span class="text-amber-300 font-medium">${esc(b.timing)}</span></div>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-auto shrink-0">
+              <button onclick="editScheduledBatch('${esc(b.batchId)}')" class="btn-secondary text-xs py-1.5 px-2.5 flex items-center gap-1" title="Load into scheduler">
+                ✏️ Edit
+              </button>
+              <button onclick="deleteScheduledBatch('${esc(b.batchId)}')" class="btn-danger text-xs py-1.5 px-2.5 flex items-center gap-1" title="Unpublish batch">
+                🗑️ Unpublish
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="p-6 text-center text-xs text-rose-400 card col-span-full border border-slate-700/60">Failed to load batches: ${err.message}</div>`;
+  }
+}
+
+async function deleteScheduledBatch(batchId) {
+  if (!confirm('Are you sure you want to remove/unpublish this scheduled competition batch? The quizzes will be set back to draft.')) return;
+  try {
+    const res = await API('DELETE', `/api/admin/quizzes/schedule/batch/${encodeURIComponent(batchId)}`);
+    toast(res.message || 'Batch unpublished successfully!', 'success');
+    resetScheduleForm(true);
+    await loadScheduleQuizzes();
+    await loadScheduledBatches();
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
+}
+
+async function editScheduledBatch(batchId) {
+  try {
+    const res = await API('GET', '/api/admin/quizzes/schedule/batches');
+    const batch = (res.batches || []).find((b) => b.batchId === batchId);
+    if (!batch) return toast('Batch details not found', 'error');
+
+    editingBatchId = batch.batchId;
+
+    // Show editing banner
+    const editBanner = document.getElementById('editingBatchBanner');
+    const editNameDisplay = document.getElementById('editingBatchNameDisplay');
+    if (editBanner) editBanner.classList.remove('hidden');
+    if (editNameDisplay) editNameDisplay.textContent = batch.batchName || 'Competition';
+
+    const btnLabel = document.getElementById('applyBatchBtnLabel');
+    if (btnLabel) btnLabel.textContent = 'Update Batch Schedule';
+
+    // Pre-fill fields
+    if (batch.batchName) document.getElementById('bulkCompetitionTitle').value = batch.batchName;
+    if (batch.startDate) document.getElementById('bulkStartDate').value = formatDateTimeForInput(new Date(batch.startDate));
+    if (batch.endDate) document.getElementById('bulkEndDate').value = formatDateTimeForInput(new Date(batch.endDate));
+    if (batch.timing) document.getElementById('bulkTimingText').value = batch.timing;
+    if (batch.bannerUrl) {
+      document.getElementById('bulkBannerUrl').value = batch.bannerUrl;
+      const img = document.getElementById('bulkBannerPreviewImg');
+      if (img) img.src = batch.bannerUrl;
+      const nameEl = document.getElementById('bulkBannerPreviewName');
+      if (nameEl) nameEl.textContent = 'Batch Banner';
+    }
+
+    // Select the batch quizzes
+    selectedQuizIds.clear();
+    (batch.quizzes || []).forEach((q) => selectedQuizIds.add(q._id));
+    
+    // Check all corresponding checkboxes
+    const cbs = document.querySelectorAll('.sched-quiz-cb');
+    cbs.forEach((cb) => {
+      cb.checked = selectedQuizIds.has(cb.value);
+    });
+    updateSelectedCountUI();
+
+    // Scroll smoothly to top of scheduler
+    document.getElementById('section-schedule').scrollIntoView({ behavior: 'smooth' });
+    toast(`Loaded "${batch.batchName}" for editing. Update fields and save, or click "Schedule New Quiz" to reset.`, 'info');
+  } catch (err) {
+    toast('Error loading batch: ' + err.message, 'error');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════

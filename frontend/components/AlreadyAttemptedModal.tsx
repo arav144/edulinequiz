@@ -4,6 +4,7 @@ import React from 'react';
 import { AlertCircle, Award, CheckCircle2, X } from 'lucide-react';
 import { Language } from './types';
 import { ISavedAttempt } from './attemptTracker';
+import { formatQuizTitle } from './quizUtils';
 
 interface AlreadyAttemptedModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface AlreadyAttemptedModalProps {
   lang: Language;
   savedAttempt?: ISavedAttempt | null;
   quizName?: string;
+  classNameVal?: string;
   onViewPreviousCertificate?: () => void;
 }
 
@@ -20,12 +22,15 @@ export const AlreadyAttemptedModal: React.FC<AlreadyAttemptedModalProps> = ({
   lang,
   savedAttempt,
   quizName,
+  classNameVal,
   onViewPreviousCertificate,
 }) => {
   const isHindi = lang === 'hi';
-  const displayQuizName = (quizName || (isHindi ? 'हिंदी दिवस प्रतियोगिता' : 'Hindi Diwas Competition'))
-    .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-    .replace(/क्विज़/g, 'प्रतियोगिता');
+  const effectiveClass = classNameVal || savedAttempt?.className;
+  const displayQuizName = formatQuizTitle(
+    quizName || (isHindi ? 'हिंदी दिवस प्रतियोगिता' : 'Hindi Diwas Competition'),
+    effectiveClass
+  );
 
   if (!isOpen) return null;
 

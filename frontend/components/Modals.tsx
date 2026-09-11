@@ -3,11 +3,13 @@
 import React from 'react';
 import { FileText, HelpCircle, Phone, AlertCircle, X } from 'lucide-react';
 import { IQuizSummary, Language, TRANSLATIONS } from './types';
+import { formatQuizTitle } from './quizUtils';
 
 interface InstructionsModalProps {
   isOpen: boolean;
   onClose: () => void;
   quiz?: IQuizSummary | null;
+  classNameVal?: string;
   lang: Language;
 }
 
@@ -15,12 +17,18 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
   isOpen,
   onClose,
   quiz,
+  classNameVal,
   lang,
 }) => {
   const t = TRANSLATIONS[lang];
   const isHindiMode = lang === 'hi';
 
   if (!isOpen) return null;
+
+  const displayQuizName = formatQuizTitle(
+    quiz?.name || (isHindiMode ? 'हिंदी दिवस विशेष प्रतियोगिता' : 'Hindi Diwas Special Quiz'),
+    classNameVal
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
@@ -54,15 +62,22 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
           {/* Section 1: Overview / About */}
           <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 space-y-2.5">
             <h4 className="font-bold text-sm text-slate-900">
-              {(quiz?.name || (isHindiMode ? 'हिंदी दिवस विशेष प्रतियोगिता' : 'Hindi Diwas Special Quiz'))
-                .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-                .replace(/क्विज़/g, 'प्रतियोगिता')}
+              {displayQuizName}
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              {quiz?.description ||
-                (isHindiMode
-                  ? 'इस प्रतियोगिता में हिंदी के राजभाषा बनने के इतिहास, हिंदी साहित्य तथा हिंदी व्याकरण से जुड़े रोचक और ज्ञानवर्धक प्रश्न शामिल हैं।'
-                  : 'This assessment evaluates comprehensive knowledge, analytical understanding, and subject proficiency.')}
+              {(() => {
+                let rawDesc = (quiz?.description || '')
+                  .replace(/कक्षा\s*\d+\s*के\s*(विद्यार्थियों|छात्रों)\s*के\s*लिए\s*/gi, 'विद्यार्थियों के लिए ')
+                  .replace(/कक्षा\s*\d+\s*/gi, '')
+                  .replace(/Class\s*\d+\s*/gi, '')
+                  .trim();
+                if (rawDesc.includes('वर्णमाला, बुनियादी शब्द ज्ञान') || !rawDesc) {
+                  rawDesc = isHindiMode
+                    ? 'विद्यार्थियों के लिए हिंदी व्याकरण, भाषा ज्ञान, मुहावरे, साहित्य और सामान्य ज्ञान पर आधारित रोचक प्रतियोगिता।'
+                    : 'This assessment evaluates comprehensive knowledge, analytical understanding, and subject proficiency.';
+                }
+                return rawDesc;
+              })()}
             </p>
 
             {/* Quick Metrics */}
@@ -102,10 +117,14 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
             <ul className="space-y-2">
               {(quiz?.instructions
                 ? quiz.instructions
+                    .replace(/कक्षा\s*\d+\s*के\s*(विद्यार्थियों|छात्रों)\s*के\s*लिए\s*/gi, 'विद्यार्थियों के लिए ')
+                    .replace(/कक्षा\s*\d+\s*/gi, '')
+                    .replace(/Class\s*\d+\s*/gi, '')
                     .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
                     .replace(/क्विज़/g, 'प्रतियोगिता')
                     .split('\n')
-                    .filter(Boolean)
+                    .map((s: string) => s.trim())
+                    .filter((s: string) => s && !s.includes('वर्णमाला, बुनियादी शब्द ज्ञान'))
                 : isHindiMode
                 ? [
                     'प्रत्येक प्रश्न को ध्यानपूर्वक पढ़ें और दिए गए विकल्पों में से सही उत्तर चुनें।',

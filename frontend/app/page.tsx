@@ -32,6 +32,8 @@ import {
   ConfirmSubmitModal,
 } from '@/components/Modals';
 import { FloatingHindiLetters } from '@/components/FloatingHindiLetters';
+import { QuizShowcaseSection } from '@/components/QuizShowcaseSection';
+import { formatQuizTitle } from '@/components/quizUtils';
 import {
   IQuizSummary,
   IQuestionItem,
@@ -71,8 +73,8 @@ export default function StudentPortalPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [phase, setPhase] = useState<
-    'registration' | 'quizzes_list' | 'taking_quiz' | 'result'
-  >('registration');
+    'quizzes_showcase' | 'registration' | 'taking_quiz' | 'result'
+  >('quizzes_showcase');
   const [verifiedStudent, setVerifiedStudent] = useState<any | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<IQuizSummary | null>(null);
 
@@ -98,9 +100,25 @@ export default function StudentPortalPage() {
   const totalQuestionsRef = useRef(0);
   totalQuestionsRef.current = questions.length;
 
-  // Language selection strictly determined by quiz configuration
+  // Quiz selection strictly matched to student's selected class if selected,
+  // otherwise defaults to generic competition (never defaulting to Class 8 when no class selected)
+  const selectedClassNum = className ? className.replace(/\D/g, '') : '';
   const currentSubjectQuiz =
     selectedQuiz ||
+    (selectedClassNum
+      ? quizzes.find((q) => {
+          if (q.targetClass && q.targetClass.replace(/\D/g, '') === selectedClassNum) return true;
+          if (
+            q.name &&
+            (q.name.includes(`कक्षा ${selectedClassNum}`) ||
+              q.name.toLowerCase().includes(`class ${selectedClassNum}`))
+          ) {
+            return true;
+          }
+          return false;
+        })
+      : null) ||
+    quizzes.find((q) => q.targetClass === 'All' || !q.name.includes('कक्षा')) ||
     quizzes.find((q) => q.subject?.toLowerCase() === selectedSubjectName?.toLowerCase()) ||
     quizzes[0];
   const lang: Language = currentSubjectQuiz?.language === 'en' ? 'en' : 'hi';
@@ -174,6 +192,24 @@ export default function StudentPortalPage() {
 
   useEffect(() => {
     loadInitialData();
+
+    // Auto-refresh when user switches back to this browser tab so changes in admin schedule reflect immediately
+    const handleFocus = () => {
+      if (phaseRef.current === 'quizzes_showcase') {
+        loadInitialData();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    const interval = setInterval(() => {
+      if (phaseRef.current === 'quizzes_showcase') {
+        loadInitialData();
+      }
+    }, 12000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
   }, [loadInitialData]);
 
   // -------------------------------------------------------------
@@ -390,7 +426,10 @@ export default function StudentPortalPage() {
       const verified = res.data || res.student;
       if (res.success && (res.canAttempt || verified)) {
         setVerifiedStudent(verified || { studentIdentifier: studentId.trim(), name: studentName.trim() });
-        await handleStartQuiz(targetQuiz);
+        const finalQuizToStart = res.quiz || (res.resolvedQuizId || res.effectiveQuizId
+          ? { ...targetQuiz, _id: res.resolvedQuizId || res.effectiveQuizId }
+          : targetQuiz);
+        await handleStartQuiz(finalQuizToStart);
       } else {
         setError(res.message || (lang === 'hi' ? 'सत्यापन विफल रहा' : 'Verification failed'));
       }
@@ -454,6 +493,18 @@ export default function StudentPortalPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // -------------------------------------------------------------
+  // Select Quiz from Showcase Cards -> Navigate to Registration Screen
+  // -------------------------------------------------------------
+  const handleSelectQuizCard = (quiz: IQuizSummary) => {
+    setSelectedQuiz(quiz);
+    // Student must select their own class from dropdown (no auto-preselect)
+    setClassName('');
+    // Transition to the student registration form screen ("fill krne wala screen")
+    setPhase('registration');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // -------------------------------------------------------------
@@ -577,7 +628,7 @@ export default function StudentPortalPage() {
           isQuizActive={phase === 'taking_quiz'}
           onOpenInstructions={() => setShowInstructionsModal(true)}
           onOpenContact={() => setShowContactModal(true)}
-          onNavigateHome={() => setPhase('registration')}
+          onNavigateHome={() => setPhase('quizzes_showcase')}
         />
 
         {/* MAIN BODY CONTENT */}
@@ -595,75 +646,44 @@ export default function StudentPortalPage() {
             </div>
           )}
 
-          {/* VIEW 1: HERO & STUDENT REGISTRATION */}
-          {phase === 'registration' && (
-            <HeroSection
-              t={t}
-              lang={lang}
-              isHindiMode={isHindiMode}
-              studentName={studentName}
-              setStudentName={setStudentName}
-              className={className}
-              setClassName={setClassName}
-              classes={classes}
-              section={section}
-              setSection={setSection}
-              studentId={studentId}
-              setStudentId={setStudentId}
-              selectedSubjectName={selectedSubjectName}
-              setSelectedSubjectName={setSelectedSubjectName}
-              schoolName={schoolName}
-              setSchoolName={setSchoolName}
-              availableSubjects={availableSubjects}
-              currentSubjectQuiz={currentSubjectQuiz}
-              loading={loading}
-              onSubmit={handleRegisterStudent}
-            />
+          {/* VIEW 1: FIRST SCREEN SHOWN — COMPETITIONS SHOWCASE TABS & CARDS */}
+          {phase === 'quizzes_showcase' && (
+            <div className="max-w-6xl mx-auto w-full space-y-6 animate-fadeIn py-2 sm:py-6">
+              <QuizShowcaseSection
+                quizzes={quizzes}
+                selectedClassName={className}
+                lang={lang}
+                onSelectQuiz={handleSelectQuizCard}
+              />
+            </div>
           )}
 
-          {/* VIEW 2: QUIZZES LIST (IF MULTIPLE AVAILABLE) */}
-          {phase === 'quizzes_list' && (
-            <div className="max-w-4xl mx-auto w-full space-y-6 animate-fadeIn">
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl sm:text-3xl font-black text-white">
-                  {lang === 'hi' ? 'उपलब्ध प्रश्नोत्तरी' : 'Available Assessments'}
-                </h2>
-                <p className="text-xs text-slate-300">
-                  {lang === 'hi'
-                    ? 'कृपया अपनी परीक्षा शुरू करने के लिए प्रतियोगिता का चयन करें'
-                    : 'Select your examination to begin test'}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {quizzes.map((quiz) => (
-                  <div
-                    key={quiz._id}
-                    className="bg-slate-900/85 border border-slate-700/80 hover:border-amber-500/60 p-6 rounded-3xl space-y-4 backdrop-blur-md shadow-xl transition hover:-translate-y-1"
-                  >
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        {quiz.subject || 'General'}
-                      </span>
-                      <h3 className="text-lg font-bold text-white pt-1">{quiz.name}</h3>
-                      <p className="text-xs text-slate-300 line-clamp-2">{quiz.description}</p>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs text-slate-400 border-t border-slate-800 pt-3">
-                      <span>{quiz.numberOfQuestions} Questions</span>
-                      <span>Pass: {quiz.passingPercentage || 50}%</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleStartQuiz(quiz)}
-                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2"
-                    >
-                      <span>{lang === 'hi' ? 'परीक्षा शुरू करें ➔' : 'Start Assessment ➔'}</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
+          {/* VIEW 2: REGISTRATION FORM SCREEN ("fill krne wala screen") */}
+          {phase === 'registration' && (
+            <div className="max-w-7xl mx-auto w-full animate-fadeIn py-2 sm:py-4">
+              <HeroSection
+                t={t}
+                lang={lang}
+                isHindiMode={isHindiMode}
+                studentName={studentName}
+                setStudentName={setStudentName}
+                className={className}
+                setClassName={setClassName}
+                classes={classes}
+                section={section}
+                setSection={setSection}
+                studentId={studentId}
+                setStudentId={setStudentId}
+                selectedSubjectName={selectedSubjectName}
+                setSelectedSubjectName={setSelectedSubjectName}
+                schoolName={schoolName}
+                setSchoolName={setSchoolName}
+                availableSubjects={availableSubjects}
+                currentSubjectQuiz={currentSubjectQuiz}
+                loading={loading}
+                onBack={() => setPhase('quizzes_showcase')}
+                onSubmit={handleRegisterStudent}
+              />
             </div>
           )}
 
@@ -697,7 +717,7 @@ export default function StudentPortalPage() {
                 schoolNameVal={schoolName}
                 downloadingPdf={downloadingPdf}
                 onDownloadPdf={handleDownloadPdf}
-                onBackToDashboard={() => setPhase('registration')}
+                onBackToDashboard={() => setPhase('quizzes_showcase')}
               />
 
               {/* 2. Question-by-Question Review (कौन-से सही, कौन-से गलत) */}
@@ -737,6 +757,7 @@ export default function StudentPortalPage() {
           onClose={() => setShowAlreadyAttemptedModal(false)}
           lang={lang}
           quizName={attemptedQuizData?.quizName}
+          classNameVal={className}
           savedAttempt={attemptedQuizData?.savedAttempt}
           onViewPreviousCertificate={
             attemptedQuizData?.savedAttempt
@@ -747,7 +768,7 @@ export default function StudentPortalPage() {
                       attemptId: saved.attemptId,
                       studentName: saved.studentName,
                       studentIdentifier: saved.studentIdentifier,
-                      className: saved.className || className || '8',
+                      className: saved.className || className || '',
                       section: section || 'A',
                       schoolName: saved.schoolName || schoolName || '',
                       quizName: attemptedQuizData.quizName || 'हिंदी दिवस प्रतियोगिता',
@@ -772,6 +793,7 @@ export default function StudentPortalPage() {
           isOpen={showInstructionsModal}
           onClose={() => setShowInstructionsModal(false)}
           quiz={currentSubjectQuiz}
+          classNameVal={className}
           lang={lang}
         />
 

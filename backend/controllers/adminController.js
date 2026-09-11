@@ -220,6 +220,12 @@ const createQuiz = async (req, res, next) => {
       language: language === 'hi' ? 'hi' : 'en',
       targetClass: targetClass ? targetClass.trim() : 'All',
       subjectId: subjectId || null,
+      startDate: req.body.startDate ? new Date(req.body.startDate) : new Date('2026-08-15T00:00:00.000Z'),
+      endDate: req.body.endDate ? new Date(req.body.endDate) : new Date('2026-09-30T23:59:59.000Z'),
+      timing: req.body.timing ? req.body.timing.trim() : '00:10 Hours',
+      totalScore: req.body.totalScore ? Number(req.body.totalScore) : (targetCount * 2 || 20),
+      scheduleStatus: req.body.scheduleStatus || 'Ongoing',
+      bannerUrl: req.body.bannerUrl ? req.body.bannerUrl.trim() : '/img/hindidiwas.png',
     });
 
     // Create associated questions
@@ -380,6 +386,12 @@ const updateQuiz = async (req, res, next) => {
     if (language !== undefined) quiz.language = language === 'hi' ? 'hi' : 'en';
     if (req.body.targetClass !== undefined) quiz.targetClass = req.body.targetClass.trim() || 'All';
     if (subjectId !== undefined) quiz.subjectId = subjectId || null;
+    if (req.body.startDate !== undefined) quiz.startDate = new Date(req.body.startDate);
+    if (req.body.endDate !== undefined) quiz.endDate = new Date(req.body.endDate);
+    if (req.body.timing !== undefined) quiz.timing = req.body.timing.trim();
+    if (req.body.totalScore !== undefined) quiz.totalScore = Number(req.body.totalScore);
+    if (req.body.scheduleStatus !== undefined) quiz.scheduleStatus = req.body.scheduleStatus;
+    if (req.body.bannerUrl !== undefined) quiz.bannerUrl = req.body.bannerUrl.trim();
 
     await quiz.save();
 
@@ -418,6 +430,318 @@ const deleteQuiz = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Quiz and all associated questions have been deleted.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update quiz schedule, dates, timing, and portal visibility
+// @route   PATCH /api/admin/quizzes/:id/schedule
+const updateQuizSchedule = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      startDate,
+      endDate,
+      timing,
+      showTiming,
+      isFeaturedOnPortal,
+      status,
+      durationMinutes,
+      totalScore,
+      bannerUrl,
+    } = req.body;
+
+    const quiz = await Quiz.findById(id);
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found.' });
+    }
+
+    if (startDate !== undefined) quiz.startDate = new Date(startDate);
+    if (endDate !== undefined) quiz.endDate = new Date(endDate);
+    if (timing !== undefined) quiz.timing = String(timing).trim();
+    if (showTiming !== undefined) quiz.showTiming = Boolean(showTiming);
+    if (isFeaturedOnPortal !== undefined) quiz.isFeaturedOnPortal = Boolean(isFeaturedOnPortal);
+    if (status !== undefined) quiz.status = status;
+    if (durationMinutes !== undefined) quiz.durationMinutes = Number(durationMinutes);
+    if (totalScore !== undefined) quiz.totalScore = Number(totalScore);
+    if (bannerUrl !== undefined) quiz.bannerUrl = String(bannerUrl).trim();
+
+    // Dynamically calculate scheduleStatus
+    const now = new Date();
+    if (quiz.status === 'Closed' || (quiz.endDate && new Date(quiz.endDate) < now)) {
+      quiz.scheduleStatus = 'Past';
+    } else if (quiz.startDate && new Date(quiz.startDate) > now) {
+      quiz.scheduleStatus = 'Upcoming';
+    } else {
+      quiz.scheduleStatus = 'Ongoing';
+    }
+
+    await quiz.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Quiz schedule updated successfully',
+      quiz,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Batch update quiz schedules (multiple quizzes selected at once)
+// @route   POST /api/admin/quizzes/schedule/batch
+const updateBatchQuizSchedule = async (req, res, next) => {
+  try {
+    const {
+      quizIds,
+      startDate,
+      endDate,
+      timing,
+      showTiming,
+      isFeaturedOnPortal,
+      bannerUrl,
+      competitionTitle,
+      status,
+    } = req.body;
+
+    if (!quizIds || !Array.isArray(quizIds) || quizIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please select at least one quiz.' });
+    }
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, message: 'Start date/time and End date/time are required.' });
+    }
+
+    const sDate = new Date(startDate);
+    const eDate = new Date(endDate);
+
+    if (isNaN(sDate.getTime()) || isNaN(eDate.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid start or end date.' });
+    }
+
+    if (eDate < sDate) {
+      return res.status(400).json({ success: false, message: 'End date/time cannot be earlier than start date/time.' });
+    }
+
+    const now = new Date();
+    let dynamicStatus = 'Ongoing';
+    if (status === 'Closed' || eDate < now) {
+      dynamicStatus = 'Past';
+    } else if (sDate > now) {
+      dynamicStatus = 'Upcoming';
+    }
+
+    const selectedQuizzes = await Quiz.find({ _id: { $in: quizIds } });
+    if (!selectedQuizzes.length) {
+      return res.status(404).json({ success: false, message: 'No matching quizzes found.' });
+    }
+
+    // Determine batch / competition title
+    let resolvedTitle = competitionTitle && competitionTitle.trim() ? competitionTitle.trim() : '';
+    if (!resolvedTitle) {
+      // Auto derive from first quiz
+      const firstQuiz = selectedQuizzes[0];
+      resolvedTitle = (firstQuiz.name || '')
+        .replace(/\s*[-–—]\s*(कक्षा|Class)\s*\d+/i, '')
+        .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
+        .replace(/क्विज़/g, 'प्रतियोगिता')
+        .trim();
+      if (!resolvedTitle) resolvedTitle = 'प्रतियोगिता';
+    }
+
+    // Generate unique batch ID or reuse existing if editing
+    const batchId = (req.body.batchId && req.body.batchId.trim() && !req.body.batchId.startsWith('standalone_'))
+      ? req.body.batchId.trim()
+      : `batch_${Date.now()}_${Math.floor(100 + Math.random() * 900)}`;
+
+    // If updating an existing batch, remove any quizzes that were deselected
+    if (req.body.batchId && req.body.batchId.trim()) {
+      const selectedIds = selectedQuizzes.map((q) => q._id);
+      await Quiz.updateMany(
+        { scheduleBatchId: batchId, _id: { $nin: selectedIds } },
+        { $set: { scheduleBatchId: null, isFeaturedOnPortal: false, isRepresentative: false } }
+      );
+    }
+
+    const finalBanner = bannerUrl && bannerUrl.trim() ? bannerUrl.trim() : '/img/hindidiwas.png';
+    const timingVal = (timing !== undefined && String(timing).trim() !== '') ? String(timing).trim() : '00:10 Hours';
+    const showTimingVal = showTiming !== undefined ? Boolean(showTiming) : true;
+    const shouldFeature = isFeaturedOnPortal !== false;
+
+    // Identify which quiz represents this batch on the student portal:
+    // 1. If a quiz has targetClass === 'All', that's the representative
+    // 2. Otherwise, pick the first quiz in the batch as the representative
+    let repQuizId = null;
+    const allClassQuiz = selectedQuizzes.find((q) => q.targetClass === 'All');
+    if (allClassQuiz) {
+      repQuizId = allClassQuiz._id.toString();
+    } else {
+      repQuizId = selectedQuizzes[0]._id.toString();
+    }
+
+    // Update each quiz in the batch
+    for (const quiz of selectedQuizzes) {
+      const qIdStr = quiz._id.toString();
+      const isRep = (qIdStr === repQuizId);
+
+      quiz.startDate = sDate;
+      quiz.endDate = eDate;
+      quiz.timing = timingVal;
+      quiz.showTiming = showTimingVal;
+      quiz.bannerUrl = finalBanner;
+      quiz.scheduleBatchId = batchId;
+      quiz.batchName = resolvedTitle;
+      quiz.scheduleStatus = dynamicStatus;
+      quiz.status = status || 'Published';
+      quiz.isRepresentative = isRep;
+
+      // CRITICAL REQUIREMENT:
+      // Only the single representative quiz is featured on the portal so 6 separate class cards do NOT appear!
+      quiz.isFeaturedOnPortal = shouldFeature ? isRep : false;
+
+      // Clean quiz description and instructions to ensure no class-specific text shows on the portal card or instructions modal
+      let cleanDesc = (quiz.description || '')
+        .replace(/कक्षा\s*\d+\s*के\s*(विद्यार्थियों|छात्रों)\s*के\s*लिए\s*/gi, 'विद्यार्थियों के लिए ')
+        .replace(/कक्षा\s*\d+\s*/gi, '')
+        .replace(/Class\s*\d+\s*/gi, '')
+        .trim();
+      if (cleanDesc.includes('वर्णमाला, बुनियादी शब्द ज्ञान') || !cleanDesc) {
+        cleanDesc = 'विद्यार्थियों के लिए हिंदी व्याकरण, भाषा ज्ञान, मुहावरे, साहित्य और सामान्य ज्ञान पर आधारित रोचक प्रतियोगिता।';
+      }
+      quiz.description = cleanDesc;
+
+      let cleanInst = (quiz.instructions || '')
+        .replace(/कक्षा\s*\d+\s*के\s*(विद्यार्थियों|छात्रों)\s*के\s*लिए\s*/gi, 'विद्यार्थियों के लिए ')
+        .replace(/कक्षा\s*\d+\s*/gi, '')
+        .replace(/Class\s*\d+\s*/gi, '')
+        .trim();
+      quiz.instructions = cleanInst;
+
+      await quiz.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully scheduled ${selectedQuizzes.length} quiz(zes) as "${resolvedTitle}"!`,
+      batchId,
+      batchName: resolvedTitle,
+      representativeQuizId: repQuizId,
+      modifiedCount: selectedQuizzes.length,
+      scheduleStatus: dynamicStatus,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get all active scheduled batches
+// @route   GET /api/admin/quizzes/schedule/batches
+const getScheduledBatches = async (req, res, next) => {
+  try {
+    const allScheduledQuizzes = await Quiz.find({
+      $or: [
+        { scheduleBatchId: { $ne: null } },
+        { isFeaturedOnPortal: true },
+      ],
+    }).sort({ startDate: -1 }).lean();
+
+    const now = new Date();
+    const batchMap = new Map();
+
+    for (const q of allScheduledQuizzes) {
+      const batchKey = q.scheduleBatchId || `standalone_${q._id}`;
+      if (!batchMap.has(batchKey)) {
+        batchMap.set(batchKey, {
+          batchId: batchKey,
+          isBatch: Boolean(q.scheduleBatchId),
+          batchName: q.batchName || q.name,
+          bannerUrl: q.bannerUrl || '/img/hindidiwas.png',
+          startDate: q.startDate,
+          endDate: q.endDate,
+          timing: q.timing || '00:10 Hours',
+          showTiming: q.showTiming !== false,
+          scheduleStatus: q.scheduleStatus,
+          status: q.status,
+          quizzes: [],
+          representativeQuiz: null,
+        });
+      }
+
+      const batch = batchMap.get(batchKey);
+      batch.quizzes.push({
+        _id: q._id,
+        name: q.name,
+        targetClass: q.targetClass || 'All',
+        numberOfQuestions: q.numberOfQuestions,
+        isRepresentative: q.isRepresentative || (q._id.toString() === batch.representativeQuiz?._id?.toString()),
+        isFeaturedOnPortal: q.isFeaturedOnPortal,
+      });
+
+      if (q.isRepresentative || q.isFeaturedOnPortal) {
+        batch.representativeQuiz = q;
+        if (q.batchName) batch.batchName = q.batchName;
+      }
+    }
+
+    const batches = Array.from(batchMap.values()).map((b) => {
+      const sDateObj = b.startDate ? new Date(b.startDate) : null;
+      const eDateObj = b.endDate ? new Date(b.endDate) : null;
+      let liveStatus = 'Ongoing';
+      if (b.status === 'Closed' || (eDateObj && eDateObj < now)) {
+        liveStatus = 'Past';
+      } else if (sDateObj && sDateObj > now) {
+        liveStatus = 'Upcoming';
+      }
+
+      return {
+        ...b,
+        scheduleStatus: liveStatus,
+        quizCount: b.quizzes.length,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      count: batches.length,
+      batches,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete or unschedule a batch
+// @route   DELETE /api/admin/quizzes/schedule/batch/:batchId
+const removeScheduledBatch = async (req, res, next) => {
+  try {
+    const { batchId } = req.params;
+    if (!batchId) {
+      return res.status(400).json({ success: false, message: 'Batch ID is required' });
+    }
+
+    if (batchId.startsWith('standalone_')) {
+      const qId = batchId.replace('standalone_', '');
+      await Quiz.findByIdAndUpdate(qId, {
+        isFeaturedOnPortal: false,
+        status: 'Draft',
+      });
+    } else {
+      await Quiz.updateMany(
+        { scheduleBatchId: batchId },
+        {
+          scheduleBatchId: null,
+          isFeaturedOnPortal: false,
+          isRepresentative: false,
+          status: 'Draft',
+        }
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Batch schedule successfully removed / unpublished!',
     });
   } catch (error) {
     next(error);
@@ -706,6 +1030,10 @@ module.exports = {
   getAdminQuizById,
   updateQuiz,
   deleteQuiz,
+  updateQuizSchedule,
+  updateBatchQuizSchedule,
+  getScheduledBatches,
+  removeScheduledBatch,
   getAllQuestions,
   addQuestion,
   updateQuestion,
@@ -714,4 +1042,5 @@ module.exports = {
   getAttemptById,
   getQuizAttempts,
 };
+
 

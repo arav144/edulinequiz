@@ -61,6 +61,60 @@ const quizSchema = new mongoose.Schema(
       default: 'All',
       index: true,
     },
+    startDate: {
+      type: Date,
+      default: () => new Date('2026-08-15'),
+    },
+    endDate: {
+      type: Date,
+      default: () => new Date('2026-09-30'),
+    },
+    totalScore: {
+      type: Number,
+      default: 20,
+    },
+    timing: {
+      type: String,
+      trim: true,
+      default: '00:10 Hours',
+    },
+    durationMinutes: {
+      type: Number,
+      default: 10,
+    },
+    bannerUrl: {
+      type: String,
+      trim: true,
+      default: '/img/hindidiwas.png',
+    },
+    scheduleStatus: {
+      type: String,
+      enum: ['Ongoing', 'Upcoming', 'Past'],
+      default: 'Ongoing',
+    },
+    isFeaturedOnPortal: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+    showTiming: {
+      type: Boolean,
+      default: true,
+    },
+    scheduleBatchId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    batchName: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    isRepresentative: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

@@ -29,9 +29,9 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   const [downloadingImg, setDownloadingImg] = useState(false);
 
   const studentDisplayName = submissionResult.studentName || 'Student';
-  const rawClass = submissionResult.className || classNameVal || '8';
+  const rawClass = submissionResult.className || classNameVal || '';
   // Remove 'Class' or 'कक्षा' prefix since 'कक्षा:' is already printed on the certificate template
-  const displayClass = rawClass.replace(/^(class|कक्षा)\s*/i, '').trim() || rawClass;
+  const displayClass = rawClass ? (rawClass.replace(/^(class|कक्षा)\s*/i, '').trim() || rawClass) : '---';
   const displaySchool = submissionResult.schoolName || schoolNameVal || 'विद्यालय';
   const getFormatDate = (val: any) => {
     try {
@@ -69,6 +69,11 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Could not initialize canvas context');
 
+      // Ensure browser web fonts are loaded
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+
       const bgImg = new Image();
       bgImg.crossOrigin = 'anonymous';
 
@@ -78,52 +83,83 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
         bgImg.src = '/img/certificate_framepdf.jpeg';
       });
 
-      const W = bgImg.naturalWidth || 1600;
-      const H = bgImg.naturalHeight || 1153;
+      const W = bgImg.naturalWidth || 4488;
+      const H = bgImg.naturalHeight || 3236;
       canvas.width = W;
       canvas.height = H;
 
-      // 1. Draw Template Frame
+      // 1. Draw Template Frame Image
       ctx.drawImage(bgImg, 0, 0, W, H);
 
-      // Helper for clean centered text
+      // Proportional font sizing: baseline 595.28 points height (matching PDF standard)
+      // On 3236px height, fontScale = 3236 / 595.28 ~= 5.436
+      const fontScale = H / 595.28;
+
+      const nameFontSize = Math.round(23 * fontScale);        // ~125px on 4488x3236
+      const classFontSize = Math.round(13.5 * fontScale);      // ~73px on 4488x3236
+      const schoolFontSize = Math.round(12.5 * fontScale);     // ~68px on 4488x3236
+      const marksFontSize = Math.round(13.5 * fontScale);      // ~73px on 4488x3236
+      const percentageFontSize = Math.round(13.5 * fontScale); // ~73px on 4488x3236
+      const resultFontSize = Math.round(13.5 * fontScale);     // ~73px on 4488x3236
+      const dateFontSize = Math.round(11.5 * fontScale);       // ~62px on 4488x3236
+      const certIdFontSize = Math.round(11 * fontScale);       // ~60px on 4488x3236
+
       ctx.fillStyle = '#0F172A';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      // 1. Candidate Name (Centered)
-      ctx.font = 'bold 44px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText(studentDisplayName, W / 2, H * 0.465);
+      // 1. Candidate Name (Centered over name line)
+      let curNameSize = nameFontSize;
+      ctx.font = `bold ${curNameSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+      const maxNameW = W * 0.58;
+      while (ctx.measureText(studentDisplayName).width > maxNameW && curNameSize > 50) {
+        curNameSize -= 4;
+        ctx.font = `bold ${curNameSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+      }
+      ctx.fillText(studentDisplayName, W / 2, H * 0.455);
 
-      // 2. Class
-      ctx.font = 'bold 24px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText(displayClass, W * 0.275, H * 0.635);
+      // 2. Class (Prominent and bold, centered over class underline)
+      ctx.font = `bold ${classFontSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+      ctx.fillText(displayClass, W * 0.275, H * 0.633);
 
-      // 3. School / Vidyalay
+      // 3. School / Vidyalay (Left-aligned, bold)
       ctx.textAlign = 'left';
-      ctx.fillText(displaySchool, W * 0.56, H * 0.635);
+      let curSchoolSize = schoolFontSize;
+      ctx.font = `bold ${curSchoolSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+      const maxSchoolW = W * 0.32;
+      while (ctx.measureText(displaySchool).width > maxSchoolW && curSchoolSize > 35) {
+        curSchoolSize -= 3;
+        ctx.font = `bold ${curSchoolSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+      }
+      ctx.fillText(displaySchool, W * 0.560, H * 0.633);
 
-      // 4. Score: Marks (Clean font sizing)
+      // 4. Score Box: Marks (Bold, clearly legible)
       ctx.textAlign = 'center';
-      ctx.font = 'bold 22px "JetBrains Mono", monospace';
-      ctx.fillText(`${submissionResult.score} / ${submissionResult.totalQuestions}`, W * 0.268, H * 0.732);
+      ctx.font = `bold ${marksFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
+      ctx.fillText(`${submissionResult.score} / ${submissionResult.totalQuestions}`, W * 0.268, H * 0.730);
 
-      // 5. Score: Percentage
-      ctx.fillText(`${submissionResult.percentage}%`, W * 0.522, H * 0.732);
+      // 5. Score Box: Percentage (Bold, clearly legible)
+      ctx.font = `bold ${percentageFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
+      ctx.fillText(`${submissionResult.percentage}%`, W * 0.522, H * 0.730);
 
-      // 6. Score: Result
+      // 6. Score Box: Result (Bold Pass/Fail with high-contrast color)
       ctx.fillStyle = isPassed ? '#15803D' : '#B91C1C';
-      ctx.font = 'bold 26px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText(isPassed ? (isHindiMode ? 'उत्तीर्ण' : 'Pass') : (isHindiMode ? 'अनुत्तीर्ण' : 'Fail'), W * 0.784, H * 0.732);
+      ctx.font = `bold ${resultFontSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+      ctx.fillText(
+        isPassed ? (isHindiMode ? 'उत्तीर्ण' : 'Pass') : (isHindiMode ? 'अनुत्तीर्ण' : 'Fail'),
+        W * 0.784,
+        H * 0.730
+      );
 
-      // 7. Date
-      ctx.fillStyle = '#334155';
+      // 7. Date (Bold, clearly legible)
+      ctx.fillStyle = '#1E293B';
       ctx.textAlign = 'left';
-      ctx.font = 'bold 22px "JetBrains Mono", monospace';
-      ctx.fillText(dateStr, W * 0.315, H * 0.825);
+      ctx.font = `bold ${dateFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
+      ctx.fillText(dateStr, W * 0.312, H * 0.823);
 
-      // 8. Certificate ID
-      ctx.fillText(certId, W * 0.295, H * 0.866);
+      // 8. Certificate ID (Bold, clearly legible)
+      ctx.font = `bold ${certIdFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
+      ctx.fillText(certId, W * 0.290, H * 0.866);
 
       // Trigger Download
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95);

@@ -14,6 +14,16 @@ export interface IQuizSummary {
   contactInfo?: string;
   language?: Language;
   targetClass?: string;
+  startDate?: string | Date;
+  endDate?: string | Date;
+  expiryDate?: string | Date;
+  totalScore?: number;
+  timing?: string;
+  showTiming?: boolean;
+  isFeaturedOnPortal?: boolean;
+  durationMinutes?: number;
+  bannerUrl?: string;
+  scheduleStatus?: 'Ongoing' | 'Upcoming' | 'Past';
   isPlayable: boolean;
   isAttempted: boolean;
   attemptResult?: {

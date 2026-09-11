@@ -82,11 +82,15 @@
       </div>
       <div onclick="showSection('classes')" class="sidebar-link" id="nav-classes">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-        Classes (कक्षाएं)
+        Classes
       </div>
       <div onclick="showSection('quizzes')" class="sidebar-link" id="nav-quizzes">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
         Quizzes
+      </div>
+      <div onclick="showSection('schedule')" class="sidebar-link" id="nav-schedule">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        Schedule
       </div>
       <div onclick="showSection('questions')" class="sidebar-link" id="nav-questions">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -227,13 +231,13 @@
         <div>
           <h2 class="text-xl font-bold text-white flex items-center gap-2">
             Class Management
-            <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">कक्षा नियंत्रण</span>
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Portal Control</span>
           </h2>
-          <p class="text-xs text-slate-400 mt-1">Select which classes are active and assign the exact quiz that will be served to each class.</p>
+          <p class="text-xs text-slate-400 mt-1">Select which classes are active and assign the exact quiz served to each class.</p>
         </div>
         <button onclick="openClassModal()" class="btn-primary">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Add Class (नई कक्षा जोड़ें)
+          Add Class
         </button>
       </div>
 
@@ -241,7 +245,7 @@
       <div class="mb-5 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-xs flex items-center justify-between gap-4">
         <div class="flex items-center gap-2">
           <span class="text-base">💡</span>
-          <span><strong>कक्षा & क्विज़ नियंत्रण:</strong> यहाँ से आप तय कर सकते हैं कि छात्र पोर्टल पर कौन-कौन सी कक्षाएं दिखेंगी और किस कक्षा के विद्यार्थी को कौन सा क्विज़ प्राप्त होगा।</span>
+          <span><strong>Class Quiz Mapping:</strong> Configure which classes appear on the student registration portal and the specific question set served to them.</span>
         </div>
         <button onclick="loadClasses()" class="text-xs text-indigo-300 hover:text-white underline shrink-0">Refresh List</button>
       </div>
@@ -252,9 +256,9 @@
             <thead class="bg-slate-700/30">
               <tr class="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 <th class="px-4 py-3">Order</th>
-                <th class="px-4 py-3">Class Name / नाम</th>
+                <th class="px-4 py-3">Class Name</th>
                 <th class="px-4 py-3">Student Portal Status</th>
-                <th class="px-4 py-3">Assigned Quiz (प्रतियोगिता)</th>
+                <th class="px-4 py-3">Assigned Quiz</th>
                 <th class="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -262,6 +266,275 @@
               <tr><td colspan="5" class="p-8 text-center text-slate-500">Loading classes...</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SCHEDULE MANAGEMENT SECTION ───────────────────────────── -->
+    <div id="section-schedule" class="p-6 fade-in hidden">
+      <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            Quiz Scheduling & Portal Visibility
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">Schedule Manager</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">Select one or multiple quizzes from the dropdown below to configure dates, timing, banner, and visibility.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="loadScheduleQuizzes()" class="btn-secondary text-xs flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Refresh List
+          </button>
+        </div>
+      </div>
+
+      <!-- Schedule Status Rules Guide with Sleek Professional Cards -->
+      <div class="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <!-- Ongoing -->
+        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-emerald-500/30 flex items-center justify-between gap-3 shadow-lg hover:border-emerald-500/50 transition">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 relative">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>Ongoing</span>
+                <span class="text-[10px] text-emerald-400 font-normal">(जारी है)</span>
+              </div>
+              <span class="text-[11px] text-slate-400 block leading-tight mt-0.5">Live right now on portal</span>
+            </div>
+          </div>
+          <span id="schedCountOngoing" class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30 shrink-0">0 Live</span>
+        </div>
+
+        <!-- Upcoming -->
+        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-amber-500/30 flex items-center justify-between gap-3 shadow-lg hover:border-amber-500/50 transition">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>Upcoming</span>
+                <span class="text-[10px] text-amber-400 font-normal">(आगामी)</span>
+              </div>
+              <span class="text-[11px] text-slate-400 block leading-tight mt-0.5">Start date is in future</span>
+            </div>
+          </div>
+          <span id="schedCountUpcoming" class="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30 shrink-0">0 Queued</span>
+        </div>
+
+        <!-- Past -->
+        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-700 flex items-center justify-between gap-3 shadow-lg hover:border-slate-600 transition">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <span>Past</span>
+                <span class="text-[10px] text-slate-400 font-normal">(समाप्त)</span>
+              </div>
+              <span class="text-[11px] text-slate-400 block leading-tight mt-0.5">End date has expired</span>
+            </div>
+          </div>
+          <span id="schedCountPast" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 font-bold border border-slate-700 shrink-0">0 Closed</span>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════
+           COMPACT SCHEDULER & MULTI-SELECT DROPDOWN CARD
+      ═══════════════════════════════════════════════════════ -->
+      <div class="card p-6 border border-slate-700/80 shadow-2xl bg-slate-800/90 space-y-6">
+        
+        <!-- Professional Active Edit Mode Notification Banner -->
+        <div id="editingBatchBanner" class="hidden p-3.5 rounded-xl bg-slate-900 border-l-4 border-indigo-500 border-y border-r border-slate-700/80 flex items-center justify-between gap-3 shadow-md">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </div>
+            <div>
+              <span class="text-xs font-bold text-white block flex items-center gap-1.5">
+                <span>Editing Competition:</span>
+                <span id="editingBatchNameDisplay" class="text-indigo-400 font-semibold"></span>
+              </span>
+              <span class="text-[11px] text-slate-400">Modify dates, banner, or classes and click Update, or reset to add a new quiz.</span>
+            </div>
+          </div>
+          <button type="button" onclick="resetScheduleForm()" class="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-sm shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            <span>Cancel / New Quiz</span>
+          </button>
+        </div>
+
+        <!-- Row 1: Quiz Multi-Select Dropdown with Checkboxes -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="form-label text-white font-semibold text-xs flex items-center gap-2">
+              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+              Select Quizzes to Schedule *
+              <span id="selectedCountBadge" class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700 text-slate-300">0 Selected</span>
+            </label>
+            <div class="flex items-center gap-2 text-xs">
+              <button type="button" onclick="selectAllQuizzes(true)" class="text-indigo-400 hover:text-indigo-300 font-medium">Select All</button>
+              <span class="text-slate-600">|</span>
+              <button type="button" onclick="selectAllQuizzes(false)" class="text-slate-400 hover:text-slate-300 font-medium">Deselect All</button>
+            </div>
+          </div>
+
+          <!-- Dropdown Trigger Button & Collapsible Panel -->
+          <div class="relative">
+            <button type="button" id="quizDropdownTrigger" onclick="toggleQuizDropdownMenu()" class="form-input text-left flex items-center justify-between cursor-pointer py-2.5">
+              <span id="quizDropdownLabel" class="text-slate-400 truncate">Choose quizzes from list...</span>
+              <svg class="w-4 h-4 text-slate-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+
+            <!-- Dropdown Options Menu -->
+            <div id="quizDropdownMenu" class="hidden absolute top-full left-0 right-0 mt-1 z-30 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-2 max-h-60 overflow-y-auto space-y-1">
+              <div id="quizDropdownItems">
+                <div class="p-3 text-xs text-slate-500 text-center">Loading quizzes...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Selected Tags Display -->
+          <div id="selectedQuizPills" class="flex flex-wrap gap-1.5 mt-2.5"></div>
+        </div>
+
+        <!-- Row 1.5: Competition / Showcase Title -->
+        <div class="pt-2 border-t border-slate-700/60">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="form-label text-white font-semibold text-xs flex items-center gap-2 mb-0">
+              <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              Competition / Showcase Name (Shows as 1 Single Card on Student Portal)
+            </label>
+            <span class="text-[10px] text-slate-400">Leave empty to auto-derive from quiz titles</span>
+          </div>
+          <input type="text" id="bulkCompetitionTitle" placeholder="e.g. हिंदी दिवस प्रतियोगिता or National Science Olympiad" class="form-input text-xs py-2">
+        </div>
+
+        <!-- Row 2: Date, Time, Duration & Banner Settings -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-700/60">
+          
+          <!-- Start Date & Time -->
+          <div>
+            <label class="form-label text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              Start Date & Time *
+            </label>
+            <input type="datetime-local" id="bulkStartDate" class="form-input text-xs py-2">
+          </div>
+
+          <!-- End Date & Time -->
+          <div>
+            <label class="form-label text-xs font-semibold text-rose-400 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              End Date & Time *
+            </label>
+            <input type="datetime-local" id="bulkEndDate" class="form-input text-xs py-2">
+          </div>
+
+          <!-- Timing Display Text -->
+          <div>
+            <label class="form-label text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Timing Text (e.g. 00:10 Hours)
+            </label>
+            <input type="text" id="bulkTimingText" value="00:10 Hours" placeholder="e.g. 00:10 Hours" class="form-input text-xs py-2">
+          </div>
+
+          <!-- Quiz Thumbnail / Banner Selector with Presets, Dropzone & Direct URL -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="form-label text-xs font-semibold text-indigo-300 flex items-center gap-1.5 mb-0">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Thumbnail / Banner *
+              </label>
+              <span id="bulkBannerStatus" class="text-[10px] text-emerald-400 font-medium"></span>
+            </div>
+
+            <!-- Preset Selector -->
+            <select id="bulkBannerPreset" class="form-input text-xs py-1.5" onchange="handleBulkBannerPresetChange(this.value)">
+              <option value="/img/hindidiwas.png">Hindi Diwas Banner (Default)</option>
+              <option value="/img/Edulinenew.jpg">Eduline Logo Banner</option>
+              <option value="upload">Upload Custom Image (Browse / Drag & Drop)...</option>
+              <option value="custom">Custom Image URL...</option>
+            </select>
+
+            <!-- Drag and Drop Dropzone -->
+            <div 
+              id="bulkBannerDropzone" 
+              class="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-900/60 rounded-xl p-2 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[60px] relative overflow-hidden group"
+              onclick="document.getElementById('bulkBannerFileInput').click()"
+              ondragover="handleBannerDragOver(event)"
+              ondragleave="handleBannerDragLeave(event)"
+              ondrop="handleBannerDrop(event)"
+            >
+              <input type="file" id="bulkBannerFileInput" accept="image/*" class="hidden" onchange="handleBannerFileSelect(event)">
+              
+              <!-- Thumbnail Preview -->
+              <div id="bulkBannerPreviewBox" class="flex items-center gap-2.5 w-full justify-between">
+                <div class="flex items-center gap-2 min-w-0">
+                  <img id="bulkBannerPreviewImg" src="/img/hindidiwas.png" alt="Thumb" class="w-12 h-9 object-cover rounded-lg border border-slate-700 bg-slate-800 shrink-0">
+                  <div class="text-left min-w-0">
+                    <span id="bulkBannerPreviewName" class="text-xs text-white font-medium block truncate max-w-[130px]">Default Banner</span>
+                    <span class="text-[10px] text-slate-400 block">Click or Drag Image to change</span>
+                  </div>
+                </div>
+                <span class="text-xs text-indigo-400 group-hover:text-indigo-300 shrink-0">📁 Browse</span>
+              </div>
+            </div>
+
+            <!-- Editable URL Input -->
+            <input type="text" id="bulkBannerUrl" value="/img/hindidiwas.png" placeholder="Image URL (e.g. /img/hindidiwas.png or https://...)" class="form-input text-xs py-1.5 text-slate-200" oninput="handleBannerUrlManualInput(this.value)">
+          </div>
+        </div>
+
+        <!-- Row 3: Toggles & Apply Action -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-700/60">
+          <div class="flex items-center gap-6 flex-wrap">
+            <label class="flex items-center gap-2.5 cursor-pointer text-xs">
+              <input type="checkbox" id="bulkShowOnPortal" checked class="w-4 h-4 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500">
+              <span class="text-slate-300 font-medium">Feature on Student Portal</span>
+            </label>
+            <label class="flex items-center gap-2.5 cursor-pointer text-xs">
+              <input type="checkbox" id="bulkShowTiming" checked class="w-4 h-4 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500">
+              <span class="text-slate-300 font-medium">Show Timing Box on Card</span>
+            </label>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <button type="button" onclick="resetScheduleForm()" id="newScheduleBtn" class="btn-secondary text-xs py-2.5 px-4 flex items-center gap-1.5 shadow-md hover:border-indigo-400/50" title="Clear form to schedule a brand new quiz">
+              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>+ Schedule New Quiz</span>
+            </button>
+            <button type="button" onclick="applyBatchSchedule()" id="applyBatchBtn" class="btn-primary text-xs py-2.5 px-6 flex items-center gap-2 shadow-lg">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span id="applyBatchBtnLabel">Save & Apply Schedule</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Scheduled Batches & Competitions Section ── -->
+      <div class="mt-8 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+              Active Scheduled Competitions & Batches
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">When multiple class quizzes are scheduled together, the student portal presents them cleanly as 1 competition card.</p>
+          </div>
+          <button onclick="loadScheduledBatches()" class="btn-secondary text-xs flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Refresh Batches
+          </button>
+        </div>
+
+        <div id="scheduledBatchesList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-6 text-center text-xs text-slate-500 card col-span-full border border-slate-700/60">Loading scheduled batches...</div>
         </div>
       </div>
     </div>
@@ -399,18 +672,23 @@
             <input type="number" id="quizPassingPct" min="0" max="100" value="50" placeholder="50" class="form-input">
           </div>
 
+          <div>
+            <label class="form-label">Total Score / Marks *</label>
+            <input type="number" id="quizTotalScore" min="1" value="20" placeholder="20" class="form-input">
+          </div>
+
           <div class="md:col-span-4">
-            <label class="form-label">About Quiz / Description (क्विज़ के बारे में)</label>
-            <textarea id="quizDescription" rows="2" placeholder="e.g. इस प्रश्नोत्तरी में हिंदी के राजभाषा बनने के इतिहास, हिंदी साहित्य तथा व्याकरण के प्रश्न शामिल हैं।" class="form-input resize-none text-xs"></textarea>
+            <label class="form-label">About Quiz / Description</label>
+            <textarea id="quizDescription" rows="2" placeholder="e.g. Hindi grammar, vocabulary, literature and general knowledge questions." class="form-input resize-none text-xs"></textarea>
           </div>
 
           <div class="md:col-span-3">
-            <label class="form-label">Custom Examination Instructions (निर्देश - प्रत्येक लाइन अलग निर्देश बनेगी)</label>
-            <textarea id="quizInstructions" rows="3" placeholder="e.g. प्रत्येक प्रश्न को ध्यानपूर्वक पढ़ें और सही उत्तर चुनें।&#10;सभी प्रश्नों के उत्तर देना अनिवार्य है।" class="form-input resize-none text-xs"></textarea>
+            <label class="form-label">Custom Examination Instructions (One instruction per line)</label>
+            <textarea id="quizInstructions" rows="3" placeholder="e.g. Read each question carefully.&#10;All questions are mandatory." class="form-input resize-none text-xs"></textarea>
           </div>
 
           <div class="md:col-span-1">
-            <label class="form-label">Contact / Helpline (संपर्क)</label>
+            <label class="form-label">Contact / Helpline</label>
             <input type="text" id="quizContactInfo" placeholder="e.g. +91 92174 78822" class="form-input text-xs">
           </div>
         </div>

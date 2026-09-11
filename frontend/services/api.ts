@@ -4,32 +4,11 @@
  */
 
 const getApiBaseUrl = (): string => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-
-  // In the browser
+  // In the browser, relative '' is universally compatible with Next.js rewrites
   if (typeof window !== 'undefined') {
-    // Local development on developer's machine
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return envUrl && envUrl.trim() !== '' ? envUrl.trim().replace(/\/+$/, '') : 'http://localhost:5000';
-    }
-    // On Vercel / Production:
-    // If NEXT_PUBLIC_API_URL was set to an unreachable/dead host or dummy name,
-    // fallback to relative '' so it uses the current live Vercel domain!
-    if (
-      !envUrl ||
-      envUrl.includes('edulinequiz-backend.vercel.app') ||
-      envUrl.includes('localhost') ||
-      envUrl.trim() === ''
-    ) {
-      return ''; // Relative path (calls same origin: /api/...)
-    }
-    return envUrl.trim().replace(/\/+$/, '');
+    return '';
   }
-
-  if (envUrl && envUrl.trim() !== '') {
-    return envUrl.trim().replace(/\/+$/, '');
-  }
-  return 'http://localhost:5000';
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 };
 
 async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -43,6 +22,7 @@ async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}):
 
   try {
     const res = await fetch(url, {
+      cache: 'no-store',
       ...options,
       headers,
     });
@@ -55,19 +35,37 @@ async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}):
 
     return data;
   } catch (error: any) {
+    // If relative fetch failed or direct failed, attempt fallback to localhost:5000
+    if (typeof window !== 'undefined' && !url.startsWith('http://localhost:5000')) {
+      try {
+        const fallbackUrl = `http://localhost:5000${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+        const fbRes = await fetch(fallbackUrl, {
+          cache: 'no-store',
+          ...options,
+          headers,
+        });
+        const fbData = await fbRes.json().catch(() => ({}));
+        if (fbRes.ok) return fbData;
+      } catch {
+        // Fall through to error
+      }
+    }
     if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
       throw new Error(
-        `Unable to reach examination server at ${baseUrl}. Please ensure the backend is running.`
+        `Unable to reach examination server at ${baseUrl || 'backend'}. Please ensure the backend is running.`
       );
     }
     throw error;
   }
 }
 
-// 1. Fetch Published Quizzes Available for Students
+// 1. Fetch Published Quizzes Available for Students (Always live, no cache)
 export async function apiGetAvailableQuizzes(studentIdentifier?: string) {
-  const qs = studentIdentifier ? `?studentIdentifier=${encodeURIComponent(studentIdentifier)}` : '';
-  return apiRequest(`/api/quizzes/available${qs}`);
+  const t = Date.now();
+  const qs = studentIdentifier
+    ? `?studentIdentifier=${encodeURIComponent(studentIdentifier)}&_t=${t}`
+    : `?_t=${t}`;
+  return apiRequest(`/api/quizzes/available${qs}`, { cache: 'no-store' });
 }
 
 // 1.1 Fetch Subjects
