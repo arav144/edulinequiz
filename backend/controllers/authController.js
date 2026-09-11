@@ -2,27 +2,43 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin');
 
-// Helper to get or create admin in MongoDB
-async function getOrCreateAdmin() {
-  const envUsername = (process.env.ADMIN_USERNAME || 'admin').trim();
-  const envPassword = (process.env.ADMIN_PASSWORD || 'admin123').trim();
+// Helper to sync admin credentials from env → MongoDB (always runs on login)
+async function syncAdminFromEnv() {
+  const envUsername = (process.env.ADMIN_USERNAME || 'eduline').trim();
+  const envPassword = (process.env.ADMIN_PASSWORD || 'Onisha@11022025').trim();
 
+  // Find admin by current env username
   let admin = await Admin.findOne({ username: envUsername });
-  if (!admin) {
-    admin = await Admin.findOne({});
-    if (!admin) {
-      admin = await Admin.create({
-        username: envUsername,
-        password: envPassword,
-        role: 'admin',
-      });
-      console.log(`👤 Initial Admin created in MongoDB: '${admin.username}'`);
+
+  if (admin) {
+    // Username matches — check if password needs syncing
+    if (admin.password !== envPassword &&
+        !admin.password.startsWith('$2a$') &&
+        !admin.password.startsWith('$2b$')) {
+      admin.password = envPassword;
+      await admin.save();
+      console.log(`🔄 Admin password synced from env for: '${envUsername}'`);
     }
+    return admin;
   }
+
+  // No admin with env username found — delete all old admins and create fresh
+  const oldAdmins = await Admin.find({});
+  if (oldAdmins.length > 0) {
+    await Admin.deleteMany({});
+    console.log(`🗑️  Deleted ${oldAdmins.length} old admin record(s) to apply new credentials.`);
+  }
+
+  admin = await Admin.create({
+    username: envUsername,
+    password: envPassword,
+    role: 'admin',
+  });
+  console.log(`✅ Admin created in MongoDB: '${envUsername}'`);
   return admin;
 }
 
-// @desc    Admin login (reads from MongoDB first, allowing direct DB password edits)
+// @desc    Admin login (always syncs credentials from env → MongoDB first)
 // @route   POST /api/auth/login
 const loginAdmin = async (req, res, next) => {
   try {
@@ -38,35 +54,20 @@ const loginAdmin = async (req, res, next) => {
     const trimmedUser = username.trim();
     const trimmedPass = password.trim();
 
-    // Check MongoDB for admin
-    let admin = await Admin.findOne({ username: trimmedUser });
-    if (!admin) {
-      admin = await getOrCreateAdmin();
-    }
+    // Always sync env credentials to MongoDB first (this replaces old admin records)
+    const admin = await syncAdminFromEnv();
 
+    // Now check if the provided credentials match the synced admin
     let isMatch = false;
 
     if (admin && admin.username.toLowerCase() === trimmedUser.toLowerCase()) {
-      // 1. Direct plain-text match (allows user to easily change password in MongoDB Atlas GUI)
+      // 1. Direct plain-text match
       if (admin.password === trimmedPass) {
         isMatch = true;
       }
-      // 2. Or bcrypt hash match (if hashed in MongoDB)
+      // 2. bcrypt hash match (if password was hashed)
       else if (admin.password.startsWith('$2a$') || admin.password.startsWith('$2b$')) {
         isMatch = await bcrypt.compare(trimmedPass, admin.password);
-      }
-    }
-
-    // Fallback: If DB didn't match, check .env
-    if (!isMatch) {
-      const expectedUser = (process.env.ADMIN_USERNAME || 'admin').trim();
-      const expectedPass = (process.env.ADMIN_PASSWORD || 'admin123').trim();
-      if (trimmedUser === expectedUser && trimmedPass === expectedPass) {
-        isMatch = true;
-        // Sync to MongoDB if not present
-        if (!admin) {
-          await Admin.create({ username: expectedUser, password: expectedPass, role: 'admin' });
-        }
       }
     }
 
@@ -79,7 +80,7 @@ const loginAdmin = async (req, res, next) => {
 
     const secret = process.env.JWT_SECRET || 'quiz_system_super_secure_jwt_secret_2026_x99y';
     const token = jwt.sign(
-      { username: admin ? admin.username : trimmedUser, role: 'admin' },
+      { username: admin.username, role: 'admin' },
       secret,
       { expiresIn: '7d' }
     );
@@ -89,7 +90,7 @@ const loginAdmin = async (req, res, next) => {
       message: 'Admin authentication successful',
       token,
       admin: {
-        username: admin ? admin.username : trimmedUser,
+        username: admin.username,
         role: 'admin',
       },
     });
