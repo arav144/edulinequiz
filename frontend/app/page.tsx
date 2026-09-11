@@ -33,6 +33,7 @@ import {
 } from '@/components/Modals';
 import { FloatingHindiLetters } from '@/components/FloatingHindiLetters';
 import { QuizShowcaseSection } from '@/components/QuizShowcaseSection';
+import { PortalLoadingScreen } from '@/components/PortalLoadingScreen';
 import { formatQuizTitle } from '@/components/quizUtils';
 import {
   IQuizSummary,
@@ -615,6 +616,9 @@ export default function StudentPortalPage() {
         backgroundImage: "url('/img/background.jpg')",
       }}
     >
+      {/* 3-Second Eduline Brand Loading Splash Screen at portal startup */}
+      <PortalLoadingScreen lang={lang} />
+
       {/* Floating Hindi Letters with interactive cursor repulsion */}
       <FloatingHindiLetters />
 
