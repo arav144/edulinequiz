@@ -24,12 +24,21 @@ export const QuizShowcaseSection: React.FC<QuizShowcaseSectionProps> = ({
   const [hasUserChangedTab, setHasUserChangedTab] = useState<boolean>(false);
   const isHindi = lang === 'hi';
 
-  // Categorize quizzes based on scheduleStatus or date
+  // Categorize and sort quizzes based on scheduleStatus and date (earlier dates first: Hindi Diwas 13 Sep before Gandhi Jayanti 2 Oct)
   const filteredQuizzes = useMemo(() => {
-    if (activeTab === 'All') return quizzes;
-    return quizzes.filter((q) => {
-      const status = q.scheduleStatus || 'Ongoing';
-      return status.toLowerCase() === activeTab.toLowerCase();
+    const list = activeTab === 'All'
+      ? [...quizzes]
+      : quizzes.filter((q) => {
+          const status = q.scheduleStatus || 'Ongoing';
+          return status.toLowerCase() === activeTab.toLowerCase();
+        });
+
+    // Chronological sort: 13 Sep before 02 Oct
+    return list.sort((a, b) => {
+      const timeA = a.startDate ? new Date(a.startDate).getTime() : 0;
+      const timeB = b.startDate ? new Date(b.startDate).getTime() : 0;
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.name || '').localeCompare(b.name || '');
     });
   }, [quizzes, activeTab]);
 

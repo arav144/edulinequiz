@@ -12,7 +12,7 @@ const adminSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      default: 'admin123',
+      default: 'eduline@2026',
     },
     role: {
       type: String,

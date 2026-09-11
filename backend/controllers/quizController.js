@@ -148,18 +148,23 @@ const getAvailableQuizzes = async (req, res, next) => {
     const statusOrder = { Ongoing: 0, Upcoming: 1, Past: 2 };
 
     const sortFn = (a, b) => {
-      // 1. TargetClass === 'All' first
+      // 1. Schedule Status: Ongoing -> Upcoming -> Past
+      const aStat = statusOrder[a.scheduleStatus] ?? 3;
+      const bStat = statusOrder[b.scheduleStatus] ?? 3;
+      if (aStat !== bStat) return aStat - bStat;
+
+      // 2. Start Date: Earlier dates first (13 Sep before 02 Oct)
+      const timeA = a.startDate ? new Date(a.startDate).getTime() : 0;
+      const timeB = b.startDate ? new Date(b.startDate).getTime() : 0;
+      if (timeA !== timeB) return timeA - timeB;
+
+      // 3. TargetClass === 'All' first
       const aIsAll = a.targetClass === 'All' || !a.name.includes('कक्षा');
       const bIsAll = b.targetClass === 'All' || !b.name.includes('कक्षा');
       if (aIsAll && !bIsAll) return -1;
       if (!aIsAll && bIsAll) return 1;
 
-      // 2. Schedule Status: Ongoing -> Upcoming -> Past
-      const aStat = statusOrder[a.scheduleStatus] ?? 3;
-      const bStat = statusOrder[b.scheduleStatus] ?? 3;
-      if (aStat !== bStat) return aStat - bStat;
-
-      // 3. Class number ascending
+      // 4. Class number ascending
       const aNum = parseInt((a.targetClass || '').replace(/\D/g, '')) || 0;
       const bNum = parseInt((b.targetClass || '').replace(/\D/g, '')) || 0;
       if (aNum !== bNum) return aNum - bNum;

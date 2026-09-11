@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +10,9 @@
   <link rel="shortcut icon" href="/admin/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/admin/admin.css">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -25,937 +28,1145 @@
     }
   </script>
 </head>
+
 <body class="bg-slate-900 text-slate-100 min-h-screen antialiased">
 
-<!-- ═══════════════════════════════════════════════════════
+  <!-- ═══════════════════════════════════════════════════════
      LOGIN VIEW
 ═══════════════════════════════════════════════════════ -->
-<div id="loginView" class="min-h-screen flex items-center justify-center p-4">
-  <div class="max-w-md w-full bg-slate-800/90 rounded-3xl p-8 border border-slate-700/80 shadow-2xl relative overflow-hidden fade-in">
-    <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-    <div class="text-center mb-8">
-      <div class="w-16 h-16 rounded-2xl bg-white p-2.5 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-indigo-600/30 ring-2 ring-indigo-500/40">
-        <img src="/admin/logo.png" alt="Eduline Logo" class="w-full h-full object-contain">
+  <div id="loginView" class="min-h-screen flex items-center justify-center p-4">
+    <div
+      class="max-w-md w-full bg-slate-800/90 rounded-3xl p-8 border border-slate-700/80 shadow-2xl relative overflow-hidden fade-in">
+      <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
       </div>
-      <h1 class="text-3xl font-extrabold text-white tracking-tight">EDULINE</h1>
-      <p class="text-slate-400 text-sm mt-1">Admin Console &mdash; Authorized Access Only</p>
+      <div class="text-center mb-8">
+        <div
+          class="w-16 h-16 rounded-2xl bg-white p-2.5 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-indigo-600/30 ring-2 ring-indigo-500/40">
+          <img src="/admin/logo.png" alt="Eduline Logo" class="w-full h-full object-contain">
+        </div>
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">EDULINE</h1>
+        <p class="text-slate-400 text-sm mt-1">Admin Console &mdash; Authorized Access Only</p>
+      </div>
+      <div id="loginError"
+        class="hidden mb-4 p-3.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm rounded-xl"></div>
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="form-label">Admin Username</label>
+          <input type="text" id="usernameInput" value="admin" required class="form-input">
+        </div>
+        <div>
+          <label class="form-label">Password</label>
+          <input type="password" id="passwordInput" value="eduline@2026" required class="form-input">
+        </div>
+        <button type="submit" id="loginBtn"
+          class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl text-sm shadow-lg transition">
+          Sign In to Admin Console
+        </button>
+      </form>
     </div>
-    <div id="loginError" class="hidden mb-4 p-3.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm rounded-xl"></div>
-    <form id="loginForm" class="space-y-4">
-      <div>
-        <label class="form-label">Admin Username</label>
-        <input type="text" id="usernameInput" value="admin" required class="form-input">
-      </div>
-      <div>
-        <label class="form-label">Password</label>
-        <input type="password" id="passwordInput" value="admin123" required class="form-input">
-      </div>
-      <button type="submit" id="loginBtn" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl text-sm shadow-lg transition">
-        Sign In to Admin Console
-      </button>
-    </form>
   </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════
+  <!-- ═══════════════════════════════════════════════════════
      MAIN APP (hidden until logged in)
 ═══════════════════════════════════════════════════════ -->
-<div id="appView" class="hidden min-h-screen">
+  <div id="appView" class="hidden min-h-screen">
 
-  <!-- Sidebar -->
-  <aside class="w-64 flex-shrink-0 bg-slate-800/50 border-r border-slate-700/50 flex flex-col h-screen sticky top-0">
-    <div class="p-4 border-b border-slate-700/50">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg ring-1 ring-slate-600 shrink-0">
-          <img src="/admin/logo.png" alt="Eduline" class="w-full h-full object-contain">
-        </div>
-        <div>
-          <div class="text-white font-bold text-sm tracking-wide">EDULINE</div>
-          <div class="text-slate-400 text-xs font-medium">Admin Console</div>
-        </div>
-      </div>
-    </div>
-    <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
-      <div onclick="showSection('dashboard')" class="sidebar-link active" id="nav-dashboard">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-        Dashboard
-      </div>
-      <div onclick="showSection('classes')" class="sidebar-link" id="nav-classes">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-        Classes
-      </div>
-      <div onclick="showSection('quizzes')" class="sidebar-link" id="nav-quizzes">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-        Quizzes
-      </div>
-      <div onclick="showSection('schedule')" class="sidebar-link" id="nav-schedule">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-        Schedule
-      </div>
-      <div onclick="showSection('questions')" class="sidebar-link" id="nav-questions">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        Questions
-      </div>
-      <div onclick="showSection('subjects')" class="sidebar-link" id="nav-subjects">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-        Subjects
-      </div>
-      <div onclick="showSection('results')" class="sidebar-link" id="nav-results">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-        Results
-      </div>
-    </nav>
-    <div class="p-3 border-t border-slate-700/50">
-      <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl text-sm font-medium transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-        Logout
-      </button>
-    </div>
-  </aside>
-
-  <!-- Main Content -->
-  <main class="flex-1 overflow-y-auto">
-
-    <!-- Top Bar -->
-    <div class="sticky top-0 z-30 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 px-6 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <img src="/admin/Edulinenew.jpg" alt="Eduline Publishers" class="h-9 sm:h-10 w-auto object-contain bg-white px-2 py-0.5 rounded-lg shadow-xs">
-        <div id="pageTitle" class="text-lg font-bold text-white pl-3 border-l border-slate-700">Dashboard</div>
-      </div>
-      <div class="flex items-center gap-3">
-        <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-        <span class="text-xs text-slate-400">API Connected</span>
-        <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center">
-          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+    <!-- Sidebar -->
+    <aside class="w-64 flex-shrink-0 bg-slate-800/50 border-r border-slate-700/50 flex flex-col h-screen sticky top-0">
+      <div class="p-4 border-b border-slate-700/50">
+        <div class="flex items-center gap-3">
+          <div
+            class="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg ring-1 ring-slate-600 shrink-0">
+            <img src="/admin/logo.png" alt="Eduline" class="w-full h-full object-contain">
+          </div>
+          <div>
+            <div class="text-white font-bold text-sm tracking-wide">EDULINE</div>
+            <div class="text-slate-400 text-xs font-medium">Admin Console</div>
+          </div>
         </div>
       </div>
-    </div>
-
-    <!-- ─── DASHBOARD SECTION ─────────────────────────────────────────── -->
-    <div id="section-dashboard" class="p-6 fade-in">
-      <div id="statsGrid" class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
-        <div class="stat-card col-span-2 md:col-span-4 xl:col-span-5 flex-row items-center justify-center py-8 text-slate-500">
-          <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-          Loading statistics...
+      <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+        <div onclick="showSection('dashboard')" class="sidebar-link active" id="nav-dashboard">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+          </svg>
+          Dashboard
         </div>
-      </div>
-      <div class="card p-5">
-        <h3 class="text-base font-bold text-white mb-4">Recent Attempts</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="text-left border-b border-slate-700">
-                <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Student</th>
-                <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">ID</th>
-                <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Quiz</th>
-                <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Subject</th>
-                <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Score</th>
-                <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">%</th>
-                <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Result</th>
-                <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Submitted</th>
-                <th class="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="recentAttemptsTable" class="divide-y divide-slate-700/50">
-              <tr><td colspan="9" class="py-8 text-center text-slate-500 text-sm">Loading...</td></tr>
-            </tbody>
-          </table>
+        <div onclick="showSection('classes')" class="sidebar-link" id="nav-classes">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          Classes
         </div>
-      </div>
-    </div>
-
-    <!-- ─── QUIZZES SECTION ───────────────────────────────────────────── -->
-    <div id="section-quizzes" class="p-6 fade-in hidden">
-      <div class="flex items-center justify-between mb-6">
-        <div>
-          <h2 class="text-xl font-bold text-white">Quiz Management</h2>
-          <p class="text-xs text-slate-400 mt-1">Create quizzes and attach questions seamlessly in a unified workflow.</p>
+        <div onclick="showSection('quizzes')" class="sidebar-link" id="nav-quizzes">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Quizzes
         </div>
-        <button onclick="openQuizModal()" class="btn-primary">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          + Add Quiz
+        <div onclick="showSection('schedule')" class="sidebar-link" id="nav-schedule">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Schedule
+        </div>
+        <div onclick="showSection('questions')" class="sidebar-link" id="nav-questions">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Questions
+        </div>
+        <div onclick="showSection('subjects')" class="sidebar-link" id="nav-subjects">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+          Subjects
+        </div>
+        <div onclick="showSection('results')" class="sidebar-link" id="nav-results">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Results
+        </div>
+      </nav>
+      <div class="p-3 border-t border-slate-700/50">
+        <button onclick="logout()"
+          class="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl text-sm font-medium transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Logout
         </button>
       </div>
-      <div id="quizzesList" class="space-y-3">
-        <div class="card p-8 text-center text-slate-500">Loading quizzes...</div>
-      </div>
-    </div>
+    </aside>
 
-    <!-- ─── QUESTIONS SECTION ─────────────────────────────────────────── -->
-    <div id="section-questions" class="p-6 fade-in hidden">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <h2 class="text-xl font-bold text-white">Question Management</h2>
-          <p class="text-xs text-slate-400 mt-1">Browse, search, and edit individual questions across all quizzes.</p>
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto">
+
+      <!-- Top Bar -->
+      <div
+        class="sticky top-0 z-30 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 px-6 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <img src="/admin/Edulinenew.jpg" alt="Eduline Publishers"
+            class="h-9 sm:h-10 w-auto object-contain bg-white px-2 py-0.5 rounded-lg shadow-xs">
+          <div id="pageTitle" class="text-lg font-bold text-white pl-3 border-l border-slate-700">Dashboard</div>
         </div>
-        <button onclick="openAddQuestionModal()" class="btn-primary">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Add Single Question
-        </button>
-      </div>
-      <!-- Filters -->
-      <div class="flex gap-3 mb-5 flex-wrap">
-        <input type="text" id="qSearch" placeholder="Search questions..." class="form-input max-w-xs" oninput="filterQuestions()">
-        <select id="qQuizFilter" class="form-input max-w-xs" onchange="filterQuestions()">
-          <option value="">All Quizzes</option>
-        </select>
-        <select id="qSubjectFilter" class="form-input max-w-xs" onchange="filterQuestions()">
-          <option value="">All Subjects</option>
-        </select>
-      </div>
-      <div id="questionsList" class="space-y-2">
-        <div class="card p-8 text-center text-slate-500">Loading questions...</div>
-      </div>
-    </div>
-
-    <!-- ─── SUBJECTS SECTION ──────────────────────────────────────────── -->
-    <div id="section-subjects" class="p-6 fade-in hidden">
-      <div class="flex items-center justify-between mb-6">
-        <div>
-          <h2 class="text-xl font-bold text-white">Subject Management</h2>
-          <p class="text-xs text-slate-400 mt-1">Organize academic subjects for curriculum categorization.</p>
-        </div>
-        <button onclick="openSubjectModal()" class="btn-primary">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Add Subject
-        </button>
-      </div>
-      <div id="subjectsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div class="card p-8 text-center text-slate-500">Loading subjects...</div>
-      </div>
-    </div>
-
-    <!-- ─── CLASSES SECTION ───────────────────────────────────────────── -->
-    <div id="section-classes" class="p-6 fade-in hidden">
-      <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <h2 class="text-xl font-bold text-white flex items-center gap-2">
-            Class Management
-            <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Portal Control</span>
-          </h2>
-          <p class="text-xs text-slate-400 mt-1">Select which classes are active and assign the exact quiz served to each class.</p>
-        </div>
-        <button onclick="openClassModal()" class="btn-primary">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Add Class
-        </button>
-      </div>
-
-      <!-- Quick Info Banner -->
-      <div class="mb-5 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-xs flex items-center justify-between gap-4">
-        <div class="flex items-center gap-2">
-          <span class="text-base">💡</span>
-          <span><strong>Class Quiz Mapping:</strong> Configure which classes appear on the student registration portal and the specific question set served to them.</span>
-        </div>
-        <button onclick="loadClasses()" class="text-xs text-indigo-300 hover:text-white underline shrink-0">Refresh List</button>
-      </div>
-
-      <div class="card overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-slate-700/30">
-              <tr class="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                <th class="px-4 py-3">Order</th>
-                <th class="px-4 py-3">Class Name</th>
-                <th class="px-4 py-3">Student Portal Status</th>
-                <th class="px-4 py-3">Assigned Quiz</th>
-                <th class="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="classesTableBody" class="divide-y divide-slate-700/50 text-slate-300">
-              <tr><td colspan="5" class="p-8 text-center text-slate-500">Loading classes...</td></tr>
-            </tbody>
-          </table>
+        <div class="flex items-center gap-3">
+          <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+          <span class="text-xs text-slate-400">API Connected</span>
+          <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- ─── SCHEDULE MANAGEMENT SECTION ───────────────────────────── -->
-    <div id="section-schedule" class="p-6 fade-in hidden">
-      <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <h2 class="text-xl font-bold text-white flex items-center gap-2">
-            Quiz Scheduling & Portal Visibility
-            <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">Schedule Manager</span>
-          </h2>
-          <p class="text-xs text-slate-400 mt-1">Select one or multiple quizzes from the dropdown below to configure dates, timing, banner, and visibility.</p>
+      <!-- ─── DASHBOARD SECTION ─────────────────────────────────────────── -->
+      <div id="section-dashboard" class="p-6 fade-in">
+        <div id="statsGrid" class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
+          <div
+            class="stat-card col-span-2 md:col-span-4 xl:col-span-5 flex-row items-center justify-center py-8 text-slate-500">
+            <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            Loading statistics...
+          </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button onclick="loadScheduleQuizzes()" class="btn-secondary text-xs flex items-center gap-1.5">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            Refresh List
+        <div class="card p-5">
+          <h3 class="text-base font-bold text-white mb-4">Recent Attempts</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left border-b border-slate-700">
+                  <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Student</th>
+                  <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">ID</th>
+                  <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Quiz</th>
+                  <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Subject</th>
+                  <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Score</th>
+                  <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">%</th>
+                  <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Result</th>
+                  <th class="pb-3 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Submitted</th>
+                  <th class="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="recentAttemptsTable" class="divide-y divide-slate-700/50">
+                <tr>
+                  <td colspan="9" class="py-8 text-center text-slate-500 text-sm">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── QUIZZES SECTION ───────────────────────────────────────────── -->
+      <div id="section-quizzes" class="p-6 fade-in hidden">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-white">Quiz Management</h2>
+            <p class="text-xs text-slate-400 mt-1">Create quizzes and attach questions seamlessly in a unified workflow.
+            </p>
+          </div>
+          <button onclick="openQuizModal()" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            + Add Quiz
           </button>
         </div>
-      </div>
-
-      <!-- Schedule Status Rules Guide with Sleek Professional Cards -->
-      <div class="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        <!-- Ongoing -->
-        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-emerald-500/30 flex items-center justify-between gap-3 shadow-lg hover:border-emerald-500/50 transition">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 relative">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            </div>
-            <div>
-              <div class="text-xs font-bold text-white flex items-center gap-1.5">
-                <span>Ongoing</span>
-                <span class="text-[10px] text-emerald-400 font-normal">(जारी है)</span>
-              </div>
-              <span class="text-[11px] text-slate-400 block leading-tight mt-0.5">Live right now on portal</span>
-            </div>
-          </div>
-          <span id="schedCountOngoing" class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30 shrink-0">0 Live</span>
-        </div>
-
-        <!-- Upcoming -->
-        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-amber-500/30 flex items-center justify-between gap-3 shadow-lg hover:border-amber-500/50 transition">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            </div>
-            <div>
-              <div class="text-xs font-bold text-white flex items-center gap-1.5">
-                <span>Upcoming</span>
-                <span class="text-[10px] text-amber-400 font-normal">(आगामी)</span>
-              </div>
-              <span class="text-[11px] text-slate-400 block leading-tight mt-0.5">Start date is in future</span>
-            </div>
-          </div>
-          <span id="schedCountUpcoming" class="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30 shrink-0">0 Queued</span>
-        </div>
-
-        <!-- Past -->
-        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-700 flex items-center justify-between gap-3 shadow-lg hover:border-slate-600 transition">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center justify-center shrink-0">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-            <div>
-              <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                <span>Past</span>
-                <span class="text-[10px] text-slate-400 font-normal">(समाप्त)</span>
-              </div>
-              <span class="text-[11px] text-slate-400 block leading-tight mt-0.5">End date has expired</span>
-            </div>
-          </div>
-          <span id="schedCountPast" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 font-bold border border-slate-700 shrink-0">0 Closed</span>
+        <div id="quizzesList" class="space-y-3">
+          <div class="card p-8 text-center text-slate-500">Loading quizzes...</div>
         </div>
       </div>
 
-      <!-- ═══════════════════════════════════════════════════════
+      <!-- ─── QUESTIONS SECTION ─────────────────────────────────────────── -->
+      <div id="section-questions" class="p-6 fade-in hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-xl font-bold text-white">Question Management</h2>
+            <p class="text-xs text-slate-400 mt-1">Browse, search, and edit individual questions across all quizzes.</p>
+          </div>
+          <button onclick="openAddQuestionModal()" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Single Question
+          </button>
+        </div>
+        <!-- Filters -->
+        <div class="flex gap-3 mb-5 flex-wrap">
+          <input type="text" id="qSearch" placeholder="Search questions..." class="form-input max-w-xs"
+            oninput="filterQuestions()">
+          <select id="qQuizFilter" class="form-input max-w-xs" onchange="filterQuestions()">
+            <option value="">All Quizzes</option>
+          </select>
+          <select id="qSubjectFilter" class="form-input max-w-xs" onchange="filterQuestions()">
+            <option value="">All Subjects</option>
+          </select>
+        </div>
+        <div id="questionsList" class="space-y-2">
+          <div class="card p-8 text-center text-slate-500">Loading questions...</div>
+        </div>
+      </div>
+
+      <!-- ─── SUBJECTS SECTION ──────────────────────────────────────────── -->
+      <div id="section-subjects" class="p-6 fade-in hidden">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-white">Subject Management</h2>
+            <p class="text-xs text-slate-400 mt-1">Organize academic subjects for curriculum categorization.</p>
+          </div>
+          <button onclick="openSubjectModal()" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Subject
+          </button>
+        </div>
+        <div id="subjectsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div class="card p-8 text-center text-slate-500">Loading subjects...</div>
+        </div>
+      </div>
+
+      <!-- ─── CLASSES SECTION ───────────────────────────────────────────── -->
+      <div id="section-classes" class="p-6 fade-in hidden">
+        <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <div>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+              Class Management
+              <span
+                class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Portal
+                Control</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Select which classes are active and assign the exact quiz served to
+              each class.</p>
+          </div>
+          <button onclick="openClassModal()" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Class
+          </button>
+        </div>
+
+        <!-- Quick Info Banner -->
+        <div
+          class="mb-5 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-xs flex items-center justify-between gap-4">
+          <div class="flex items-center gap-2">
+            <span class="text-base">💡</span>
+            <span><strong>Class Quiz Mapping:</strong> Configure which classes appear on the student registration portal
+              and the specific question set served to them.</span>
+          </div>
+          <button onclick="loadClasses()" class="text-xs text-indigo-300 hover:text-white underline shrink-0">Refresh
+            List</button>
+        </div>
+
+        <div class="card overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-700/30">
+                <tr class="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <th class="px-4 py-3">Order</th>
+                  <th class="px-4 py-3">Class Name</th>
+                  <th class="px-4 py-3">Student Portal Status</th>
+                  <th class="px-4 py-3">Assigned Quiz</th>
+                  <th class="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="classesTableBody" class="divide-y divide-slate-700/50 text-slate-300">
+                <tr>
+                  <td colspan="5" class="p-8 text-center text-slate-500">Loading classes...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── SCHEDULE MANAGEMENT SECTION ───────────────────────────── -->
+      <div id="section-schedule" class="p-6 fade-in hidden">
+        <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <div>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+              Quiz Scheduling & Portal Visibility
+              <span
+                class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">Schedule
+                Manager</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Select one or multiple quizzes from the dropdown below to configure
+              dates, timing, banner, and visibility.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="loadScheduleQuizzes()" class="btn-secondary text-xs flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh List
+            </button>
+          </div>
+        </div>
+
+        <!-- Schedule Status Rules Guide with Sleek Professional Cards -->
+        <div class="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <!-- Ongoing -->
+          <div
+            class="p-3.5 rounded-xl bg-slate-900/90 border border-emerald-500/30 flex items-center justify-between gap-3 shadow-lg hover:border-emerald-500/50 transition">
+            <div class="flex items-center gap-3">
+              <div
+                class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 relative">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Ongoing</span>
+                  <span class="text-[10px] text-emerald-400 font-normal">(जारी है)</span>
+                </div>
+                <span class="text-[11px] text-slate-400 block leading-tight mt-0.5">Live right now on portal</span>
+              </div>
+            </div>
+            <span id="schedCountOngoing"
+              class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30 shrink-0">0
+              Live</span>
+          </div>
+
+          <!-- Upcoming -->
+          <div
+            class="p-3.5 rounded-xl bg-slate-900/90 border border-amber-500/30 flex items-center justify-between gap-3 shadow-lg hover:border-amber-500/50 transition">
+            <div class="flex items-center gap-3">
+              <div
+                class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Upcoming</span>
+                  <span class="text-[10px] text-amber-400 font-normal">(आगामी)</span>
+                </div>
+                <span class="text-[11px] text-slate-400 block leading-tight mt-0.5">Start date is in future</span>
+              </div>
+            </div>
+            <span id="schedCountUpcoming"
+              class="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30 shrink-0">0
+              Queued</span>
+          </div>
+
+          <!-- Past -->
+          <div
+            class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-700 flex items-center justify-between gap-3 shadow-lg hover:border-slate-600 transition">
+            <div class="flex items-center gap-3">
+              <div
+                class="w-9 h-9 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <span>Past</span>
+                  <span class="text-[10px] text-slate-400 font-normal">(समाप्त)</span>
+                </div>
+                <span class="text-[11px] text-slate-400 block leading-tight mt-0.5">End date has expired</span>
+              </div>
+            </div>
+            <span id="schedCountPast"
+              class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 font-bold border border-slate-700 shrink-0">0
+              Closed</span>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════
            COMPACT SCHEDULER & MULTI-SELECT DROPDOWN CARD
       ═══════════════════════════════════════════════════════ -->
-      <div class="card p-6 border border-slate-700/80 shadow-2xl bg-slate-800/90 space-y-6">
-        
-        <!-- Professional Active Edit Mode Notification Banner -->
-        <div id="editingBatchBanner" class="hidden p-3.5 rounded-xl bg-slate-900 border-l-4 border-indigo-500 border-y border-r border-slate-700/80 flex items-center justify-between gap-3 shadow-md">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            </div>
-            <div>
-              <span class="text-xs font-bold text-white block flex items-center gap-1.5">
-                <span>Editing Competition:</span>
-                <span id="editingBatchNameDisplay" class="text-indigo-400 font-semibold"></span>
-              </span>
-              <span class="text-[11px] text-slate-400">Modify dates, banner, or classes and click Update, or reset to add a new quiz.</span>
-            </div>
-          </div>
-          <button type="button" onclick="resetScheduleForm()" class="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-sm shrink-0">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            <span>Cancel / New Quiz</span>
-          </button>
-        </div>
+        <div class="card p-6 border border-slate-700/80 shadow-2xl bg-slate-800/90 space-y-6">
 
-        <!-- Row 1: Quiz Multi-Select Dropdown with Checkboxes -->
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <label class="form-label text-white font-semibold text-xs flex items-center gap-2">
-              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-              Select Quizzes to Schedule *
-              <span id="selectedCountBadge" class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700 text-slate-300">0 Selected</span>
-            </label>
-            <div class="flex items-center gap-2 text-xs">
-              <button type="button" onclick="selectAllQuizzes(true)" class="text-indigo-400 hover:text-indigo-300 font-medium">Select All</button>
-              <span class="text-slate-600">|</span>
-              <button type="button" onclick="selectAllQuizzes(false)" class="text-slate-400 hover:text-slate-300 font-medium">Deselect All</button>
-            </div>
-          </div>
-
-          <!-- Dropdown Trigger Button & Collapsible Panel -->
-          <div class="relative">
-            <button type="button" id="quizDropdownTrigger" onclick="toggleQuizDropdownMenu()" class="form-input text-left flex items-center justify-between cursor-pointer py-2.5">
-              <span id="quizDropdownLabel" class="text-slate-400 truncate">Choose quizzes from list...</span>
-              <svg class="w-4 h-4 text-slate-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-            </button>
-
-            <!-- Dropdown Options Menu -->
-            <div id="quizDropdownMenu" class="hidden absolute top-full left-0 right-0 mt-1 z-30 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-2 max-h-60 overflow-y-auto space-y-1">
-              <div id="quizDropdownItems">
-                <div class="p-3 text-xs text-slate-500 text-center">Loading quizzes...</div>
+          <!-- Professional Active Edit Mode Notification Banner -->
+          <div id="editingBatchBanner"
+            class="hidden p-3.5 rounded-xl bg-slate-900 border-l-4 border-indigo-500 border-y border-r border-slate-700/80 flex items-center justify-between gap-3 shadow-md">
+            <div class="flex items-center gap-3">
+              <div
+                class="w-8 h-8 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </div>
+              <div>
+                <span class="text-xs font-bold text-white block flex items-center gap-1.5">
+                  <span>Editing Competition:</span>
+                  <span id="editingBatchNameDisplay" class="text-indigo-400 font-semibold"></span>
+                </span>
+                <span class="text-[11px] text-slate-400">Modify dates, banner, or classes and click Update, or reset to
+                  add a new quiz.</span>
               </div>
             </div>
+            <button type="button" onclick="resetScheduleForm()"
+              class="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-sm shrink-0">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span>Cancel / New Quiz</span>
+            </button>
           </div>
 
-          <!-- Selected Tags Display -->
-          <div id="selectedQuizPills" class="flex flex-wrap gap-1.5 mt-2.5"></div>
-        </div>
-
-        <!-- Row 1.5: Competition / Showcase Title -->
-        <div class="pt-2 border-t border-slate-700/60">
-          <div class="flex items-center justify-between mb-1.5">
-            <label class="form-label text-white font-semibold text-xs flex items-center gap-2 mb-0">
-              <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-              Competition / Showcase Name (Shows as 1 Single Card on Student Portal)
-            </label>
-            <span class="text-[10px] text-slate-400">Leave empty to auto-derive from quiz titles</span>
-          </div>
-          <input type="text" id="bulkCompetitionTitle" placeholder="e.g. हिंदी दिवस प्रतियोगिता or National Science Olympiad" class="form-input text-xs py-2">
-        </div>
-
-        <!-- Row 2: Date, Time, Duration & Banner Settings -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-700/60">
-          
-          <!-- Start Date & Time -->
+          <!-- Row 1: Quiz Multi-Select Dropdown with Checkboxes -->
           <div>
-            <label class="form-label text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-              Start Date & Time *
-            </label>
-            <input type="datetime-local" id="bulkStartDate" class="form-input text-xs py-2">
-          </div>
-
-          <!-- End Date & Time -->
-          <div>
-            <label class="form-label text-xs font-semibold text-rose-400 flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              End Date & Time *
-            </label>
-            <input type="datetime-local" id="bulkEndDate" class="form-input text-xs py-2">
-          </div>
-
-          <!-- Timing Display Text -->
-          <div>
-            <label class="form-label text-xs font-semibold text-amber-400 flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              Timing Text (e.g. 00:10 Hours)
-            </label>
-            <input type="text" id="bulkTimingText" value="00:10 Hours" placeholder="e.g. 00:10 Hours" class="form-input text-xs py-2">
-          </div>
-
-          <!-- Quiz Thumbnail / Banner Selector with Presets, Dropzone & Direct URL -->
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <label class="form-label text-xs font-semibold text-indigo-300 flex items-center gap-1.5 mb-0">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                Thumbnail / Banner *
+            <div class="flex items-center justify-between mb-2">
+              <label class="form-label text-white font-semibold text-xs flex items-center gap-2">
+                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Select Quizzes to Schedule *
+                <span id="selectedCountBadge"
+                  class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700 text-slate-300">0 Selected</span>
               </label>
-              <span id="bulkBannerStatus" class="text-[10px] text-emerald-400 font-medium"></span>
-            </div>
-
-            <!-- Preset Selector -->
-            <select id="bulkBannerPreset" class="form-input text-xs py-1.5" onchange="handleBulkBannerPresetChange(this.value)">
-              <option value="/img/hindidiwas.png">Hindi Diwas Banner (Default)</option>
-              <option value="/img/Edulinenew.jpg">Eduline Logo Banner</option>
-              <option value="upload">Upload Custom Image (Browse / Drag & Drop)...</option>
-              <option value="custom">Custom Image URL...</option>
-            </select>
-
-            <!-- Drag and Drop Dropzone -->
-            <div 
-              id="bulkBannerDropzone" 
-              class="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-900/60 rounded-xl p-2 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[60px] relative overflow-hidden group"
-              onclick="document.getElementById('bulkBannerFileInput').click()"
-              ondragover="handleBannerDragOver(event)"
-              ondragleave="handleBannerDragLeave(event)"
-              ondrop="handleBannerDrop(event)"
-            >
-              <input type="file" id="bulkBannerFileInput" accept="image/*" class="hidden" onchange="handleBannerFileSelect(event)">
-              
-              <!-- Thumbnail Preview -->
-              <div id="bulkBannerPreviewBox" class="flex items-center gap-2.5 w-full justify-between">
-                <div class="flex items-center gap-2 min-w-0">
-                  <img id="bulkBannerPreviewImg" src="/img/hindidiwas.png" alt="Thumb" class="w-12 h-9 object-cover rounded-lg border border-slate-700 bg-slate-800 shrink-0">
-                  <div class="text-left min-w-0">
-                    <span id="bulkBannerPreviewName" class="text-xs text-white font-medium block truncate max-w-[130px]">Default Banner</span>
-                    <span class="text-[10px] text-slate-400 block">Click or Drag Image to change</span>
-                  </div>
-                </div>
-                <span class="text-xs text-indigo-400 group-hover:text-indigo-300 shrink-0">📁 Browse</span>
+              <div class="flex items-center gap-2 text-xs">
+                <button type="button" onclick="selectAllQuizzes(true)"
+                  class="text-indigo-400 hover:text-indigo-300 font-medium">Select All</button>
+                <span class="text-slate-600">|</span>
+                <button type="button" onclick="selectAllQuizzes(false)"
+                  class="text-slate-400 hover:text-slate-300 font-medium">Deselect All</button>
               </div>
             </div>
 
-            <!-- Editable URL Input -->
-            <input type="text" id="bulkBannerUrl" value="/img/hindidiwas.png" placeholder="Image URL (e.g. /img/hindidiwas.png or https://...)" class="form-input text-xs py-1.5 text-slate-200" oninput="handleBannerUrlManualInput(this.value)">
+            <!-- Dropdown Trigger Button & Collapsible Panel -->
+            <div class="relative">
+              <button type="button" id="quizDropdownTrigger" onclick="toggleQuizDropdownMenu()"
+                class="form-input text-left flex items-center justify-between cursor-pointer py-2.5">
+                <span id="quizDropdownLabel" class="text-slate-400 truncate">Choose quizzes from list...</span>
+                <svg class="w-4 h-4 text-slate-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <!-- Dropdown Options Menu -->
+              <div id="quizDropdownMenu"
+                class="hidden absolute top-full left-0 right-0 mt-1 z-30 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-2 max-h-60 overflow-y-auto space-y-1">
+                <div id="quizDropdownItems">
+                  <div class="p-3 text-xs text-slate-500 text-center">Loading quizzes...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Selected Tags Display -->
+            <div id="selectedQuizPills" class="flex flex-wrap gap-1.5 mt-2.5"></div>
           </div>
+
+          <!-- Row 1.5: Competition / Showcase Title -->
+          <div class="pt-2 border-t border-slate-700/60">
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="form-label text-white font-semibold text-xs flex items-center gap-2 mb-0">
+                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Competition / Showcase Name (Shows as 1 Single Card on Student Portal)
+              </label>
+              <span class="text-[10px] text-slate-400">Leave empty to auto-derive from quiz titles</span>
+            </div>
+            <input type="text" id="bulkCompetitionTitle"
+              placeholder="e.g. हिंदी दिवस प्रतियोगिता or National Science Olympiad" class="form-input text-xs py-2">
+          </div>
+
+          <!-- Row 2: Date, Time, Duration & Banner Settings -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-700/60">
+
+            <!-- Start Date & Time -->
+            <div>
+              <label class="form-label text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Start Date & Time *
+              </label>
+              <input type="datetime-local" id="bulkStartDate" class="form-input text-xs py-2">
+            </div>
+
+            <!-- End Date & Time -->
+            <div>
+              <label class="form-label text-xs font-semibold text-rose-400 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                End Date & Time *
+              </label>
+              <input type="datetime-local" id="bulkEndDate" class="form-input text-xs py-2">
+            </div>
+
+            <!-- Timing Display Text -->
+            <div>
+              <label class="form-label text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Timing Text (e.g. 00:10 Hours)
+              </label>
+              <input type="text" id="bulkTimingText" value="00:10 Hours" placeholder="e.g. 00:10 Hours"
+                class="form-input text-xs py-2">
+            </div>
+
+            <!-- Quiz Thumbnail / Banner Selector with Presets, Dropzone & Direct URL -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="form-label text-xs font-semibold text-indigo-300 flex items-center gap-1.5 mb-0">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Thumbnail / Banner *
+                </label>
+                <span id="bulkBannerStatus" class="text-[10px] text-emerald-400 font-medium"></span>
+              </div>
+
+              <!-- Preset Selector -->
+              <select id="bulkBannerPreset" class="form-input text-xs py-1.5"
+                onchange="handleBulkBannerPresetChange(this.value)">
+                <option value="/img/hindidiwas.png">Hindi Diwas Banner (Default)</option>
+                <option value="/img/Edulinenew.jpg">Eduline Logo Banner</option>
+                <option value="upload">Upload Custom Image (Browse / Drag & Drop)...</option>
+                <option value="custom">Custom Image URL...</option>
+              </select>
+
+              <!-- Drag and Drop Dropzone -->
+              <div id="bulkBannerDropzone"
+                class="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-900/60 rounded-xl p-2 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[60px] relative overflow-hidden group"
+                onclick="document.getElementById('bulkBannerFileInput').click()"
+                ondragover="handleBannerDragOver(event)" ondragleave="handleBannerDragLeave(event)"
+                ondrop="handleBannerDrop(event)">
+                <input type="file" id="bulkBannerFileInput" accept="image/*" class="hidden"
+                  onchange="handleBannerFileSelect(event)">
+
+                <!-- Thumbnail Preview -->
+                <div id="bulkBannerPreviewBox" class="flex items-center gap-2.5 w-full justify-between">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <img id="bulkBannerPreviewImg" src="/img/hindidiwas.png" alt="Thumb"
+                      class="w-12 h-9 object-cover rounded-lg border border-slate-700 bg-slate-800 shrink-0">
+                    <div class="text-left min-w-0">
+                      <span id="bulkBannerPreviewName"
+                        class="text-xs text-white font-medium block truncate max-w-[130px]">Default Banner</span>
+                      <span class="text-[10px] text-slate-400 block">Click or Drag Image to change</span>
+                    </div>
+                  </div>
+                  <span class="text-xs text-indigo-400 group-hover:text-indigo-300 shrink-0">📁 Browse</span>
+                </div>
+              </div>
+
+              <!-- Editable URL Input -->
+              <input type="text" id="bulkBannerUrl" value="/img/hindidiwas.png"
+                placeholder="Image URL (e.g. /img/hindidiwas.png or https://...)"
+                class="form-input text-xs py-1.5 text-slate-200" oninput="handleBannerUrlManualInput(this.value)">
+            </div>
+          </div>
+
+          <!-- Row 3: Toggles & Apply Action -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-700/60">
+            <div class="flex items-center gap-6 flex-wrap">
+              <label class="flex items-center gap-2.5 cursor-pointer text-xs">
+                <input type="checkbox" id="bulkShowOnPortal" checked
+                  class="w-4 h-4 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500">
+                <span class="text-slate-300 font-medium">Feature on Student Portal</span>
+              </label>
+              <label class="flex items-center gap-2.5 cursor-pointer text-xs">
+                <input type="checkbox" id="bulkShowTiming" checked
+                  class="w-4 h-4 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500">
+                <span class="text-slate-300 font-medium">Show Timing Box on Card</span>
+              </label>
+            </div>
+
+            <div class="flex items-center gap-2.5">
+              <button type="button" onclick="resetScheduleForm()" id="newScheduleBtn"
+                class="btn-secondary text-xs py-2.5 px-4 flex items-center gap-1.5 shadow-md hover:border-indigo-400/50"
+                title="Clear form to schedule a brand new quiz">
+                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>+ Schedule New Quiz</span>
+              </button>
+              <button type="button" onclick="applyBatchSchedule()" id="applyBatchBtn"
+                class="btn-primary text-xs py-2.5 px-6 flex items-center gap-2 shadow-lg">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span id="applyBatchBtnLabel">Save & Apply Schedule</span>
+              </button>
+            </div>
+          </div>
+
         </div>
 
-        <!-- Row 3: Toggles & Apply Action -->
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-700/60">
-          <div class="flex items-center gap-6 flex-wrap">
-            <label class="flex items-center gap-2.5 cursor-pointer text-xs">
-              <input type="checkbox" id="bulkShowOnPortal" checked class="w-4 h-4 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500">
-              <span class="text-slate-300 font-medium">Feature on Student Portal</span>
-            </label>
-            <label class="flex items-center gap-2.5 cursor-pointer text-xs">
-              <input type="checkbox" id="bulkShowTiming" checked class="w-4 h-4 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500">
-              <span class="text-slate-300 font-medium">Show Timing Box on Card</span>
-            </label>
+        <!-- ── Scheduled Batches & Competitions Section ── -->
+        <div class="mt-8 space-y-4">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+                Active Scheduled Competitions & Batches
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">When multiple class quizzes are scheduled together, the student
+                portal presents them cleanly as 1 competition card.</p>
+            </div>
+            <button onclick="loadScheduledBatches()" class="btn-secondary text-xs flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh Batches
+            </button>
           </div>
 
-          <div class="flex items-center gap-2.5">
-            <button type="button" onclick="resetScheduleForm()" id="newScheduleBtn" class="btn-secondary text-xs py-2.5 px-4 flex items-center gap-1.5 shadow-md hover:border-indigo-400/50" title="Clear form to schedule a brand new quiz">
-              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              <span>+ Schedule New Quiz</span>
-            </button>
-            <button type="button" onclick="applyBatchSchedule()" id="applyBatchBtn" class="btn-primary text-xs py-2.5 px-6 flex items-center gap-2 shadow-lg">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              <span id="applyBatchBtnLabel">Save & Apply Schedule</span>
-            </button>
+          <div id="scheduledBatchesList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-6 text-center text-xs text-slate-500 card col-span-full border border-slate-700/60">Loading
+              scheduled batches...</div>
           </div>
         </div>
-
       </div>
 
-      <!-- ── Scheduled Batches & Competitions Section ── -->
-      <div class="mt-8 space-y-4">
-        <div class="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <h3 class="text-base font-bold text-white flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
-              Active Scheduled Competitions & Batches
-            </h3>
-            <p class="text-xs text-slate-400 mt-0.5">When multiple class quizzes are scheduled together, the student portal presents them cleanly as 1 competition card.</p>
-          </div>
-          <button onclick="loadScheduledBatches()" class="btn-secondary text-xs flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            Refresh Batches
+      <!-- ─── RESULTS SECTION ───────────────────────────────────────────── -->
+      <div id="section-results" class="p-6 fade-in hidden">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h2 class="text-xl font-bold text-white">Student Results</h2>
+          <button onclick="downloadAllCertificates()" class="btn-primary text-xs py-2 px-3 flex items-center gap-1.5"
+            title="Download certificates for all students">
+            <span>🏆</span> Download All Certificates
           </button>
         </div>
-
-        <div id="scheduledBatchesList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="p-6 text-center text-xs text-slate-500 card col-span-full border border-slate-700/60">Loading scheduled batches...</div>
+        <div class="flex gap-3 mb-5 flex-wrap">
+          <input type="text" id="rSearch" placeholder="Search by name or ID..." class="form-input max-w-xs"
+            oninput="loadResults()">
+          <select id="rQuizFilter" class="form-input max-w-xs" onchange="loadResults()">
+            <option value="">All Quizzes</option>
+          </select>
+          <select id="rResultFilter" class="form-input" style="max-width:160px" onchange="loadResults()">
+            <option value="">All Results</option>
+            <option value="Pass">Pass</option>
+            <option value="Fail">Fail</option>
+          </select>
+          <select id="rSortBy" class="form-input" style="max-width:160px" onchange="loadResults()">
+            <option value="date">Sort: Latest</option>
+            <option value="score">Sort: Score</option>
+          </select>
+        </div>
+        <div class="card overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-700/30">
+                <tr class="text-left">
+                  <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Student</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">ID</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Quiz</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Subject</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Score</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">%</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Result</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Certificate</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Submitted</th>
+                  <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="resultsTable" class="divide-y divide-slate-700/50">
+                <tr>
+                  <td colspan="10" class="py-8 text-center text-slate-500">Loading results...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- ─── RESULTS SECTION ───────────────────────────────────────────── -->
-    <div id="section-results" class="p-6 fade-in hidden">
-      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 class="text-xl font-bold text-white">Student Results</h2>
-        <button onclick="downloadAllCertificates()" class="btn-primary text-xs py-2 px-3 flex items-center gap-1.5" title="Download certificates for all students">
-          <span>🏆</span> Download All Certificates
-        </button>
-      </div>
-      <div class="flex gap-3 mb-5 flex-wrap">
-        <input type="text" id="rSearch" placeholder="Search by name or ID..." class="form-input max-w-xs" oninput="loadResults()">
-        <select id="rQuizFilter" class="form-input max-w-xs" onchange="loadResults()">
-          <option value="">All Quizzes</option>
-        </select>
-        <select id="rResultFilter" class="form-input" style="max-width:160px" onchange="loadResults()">
-          <option value="">All Results</option>
-          <option value="Pass">Pass</option>
-          <option value="Fail">Fail</option>
-        </select>
-        <select id="rSortBy" class="form-input" style="max-width:160px" onchange="loadResults()">
-          <option value="date">Sort: Latest</option>
-          <option value="score">Sort: Score</option>
-        </select>
-      </div>
-      <div class="card overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-slate-700/30">
-              <tr class="text-left">
-                <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Student</th>
-                <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">ID</th>
-                <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Quiz</th>
-                <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Subject</th>
-                <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Score</th>
-                <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">%</th>
-                <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Result</th>
-                <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Certificate</th>
-                <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Submitted</th>
-                <th class="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="resultsTable" class="divide-y divide-slate-700/50">
-              <tr><td colspan="10" class="py-8 text-center text-slate-500">Loading results...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    </main>
+  </div>
 
-  </main>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════
+  <!-- ═══════════════════════════════════════════════════════
      MODALS
 ═══════════════════════════════════════════════════════ -->
 
-<!-- UNIFIED CREATE / EDIT QUIZ MODAL (Quiz Info + Dynamic Questions) -->
-<div id="quizModal" class="modal-overlay hidden">
-  <div class="modal-box-lg max-h-[92vh] flex flex-col">
-    <!-- Modal Header -->
-    <div class="flex items-center justify-between p-6 border-b border-slate-700/80 bg-slate-800 sticky top-0 z-20">
-      <div>
-        <h3 id="quizModalTitle" class="text-xl font-extrabold text-white">Create Quiz</h3>
-        <p class="text-xs text-slate-400 mt-0.5">Configure quiz details and add all questions directly on this page.</p>
-      </div>
-      <button onclick="closeModal('quizModal')" class="text-slate-400 hover:text-white transition p-1.5 rounded-lg hover:bg-slate-700">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </div>
-
-    <!-- Modal Scrollable Content -->
-    <div class="p-6 space-y-6 overflow-y-auto flex-1">
-      <input type="hidden" id="quizId">
-
-      <!-- SECTION 1: QUIZ INFORMATION -->
-      <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-700/70 space-y-4">
-        <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          Quiz Information
-        </h4>
-
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div class="md:col-span-4">
-            <label class="form-label">Quiz Name *</label>
-            <input type="text" id="quizName" placeholder="e.g. Mathematics Final Exam" class="form-input text-base">
-          </div>
-
-          <div>
-            <label class="form-label">Subject *</label>
-            <select id="quizSubjectId" class="form-input">
-              <option value="">Select Subject</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="form-label">Language / भाषा *</label>
-            <select id="quizLanguage" class="form-input">
-              <option value="en">English (Default)</option>
-              <option value="hi">हिंदी (Hindi)</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="form-label">Target Class / कक्षा *</label>
-            <select id="quizTargetClass" class="form-input">
-              <option value="All">All Classes (सभी कक्षाएं)</option>
-              <option value="Class 3">कक्षा 3 (Class 3)</option>
-              <option value="Class 4">कक्षा 4 (Class 4)</option>
-              <option value="Class 5">कक्षा 5 (Class 5)</option>
-              <option value="Class 6">कक्षा 6 (Class 6)</option>
-              <option value="Class 7">कक्षा 7 (Class 7)</option>
-              <option value="Class 8">कक्षा 8 (Class 8)</option>
-              <option value="Class 1">कक्षा 1 (Class 1)</option>
-              <option value="Class 2">कक्षा 2 (Class 2)</option>
-              <option value="Class 9">कक्षा 9 (Class 9)</option>
-              <option value="Class 10">कक्षा 10 (Class 10)</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="form-label">Number of Questions *</label>
-            <input type="number" id="quizNumQuestions" min="1" value="10" placeholder="e.g. 10" class="form-input" oninput="updateQuestionsQuotaNotice()">
-          </div>
-
-          <div>
-            <label class="form-label">Time Per Question (Seconds) ⏱️</label>
-            <input type="number" id="quizTimePerQuestion" min="5" max="600" value="30" placeholder="30" class="form-input">
-          </div>
-
-          <div>
-            <label class="form-label">Passing Percentage (%)</label>
-            <input type="number" id="quizPassingPct" min="0" max="100" value="50" placeholder="50" class="form-input">
-          </div>
-
-          <div>
-            <label class="form-label">Total Score / Marks *</label>
-            <input type="number" id="quizTotalScore" min="1" value="20" placeholder="20" class="form-input">
-          </div>
-
-          <div class="md:col-span-4">
-            <label class="form-label">About Quiz / Description</label>
-            <textarea id="quizDescription" rows="2" placeholder="e.g. Hindi grammar, vocabulary, literature and general knowledge questions." class="form-input resize-none text-xs"></textarea>
-          </div>
-
-          <div class="md:col-span-3">
-            <label class="form-label">Custom Examination Instructions (One instruction per line)</label>
-            <textarea id="quizInstructions" rows="3" placeholder="e.g. Read each question carefully.&#10;All questions are mandatory." class="form-input resize-none text-xs"></textarea>
-          </div>
-
-          <div class="md:col-span-1">
-            <label class="form-label">Contact / Helpline</label>
-            <input type="text" id="quizContactInfo" placeholder="e.g. +91 92174 78822" class="form-input text-xs">
-          </div>
+  <!-- UNIFIED CREATE / EDIT QUIZ MODAL (Quiz Info + Dynamic Questions) -->
+  <div id="quizModal" class="modal-overlay hidden">
+    <div class="modal-box-lg max-h-[92vh] flex flex-col">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-6 border-b border-slate-700/80 bg-slate-800 sticky top-0 z-20">
+        <div>
+          <h3 id="quizModalTitle" class="text-xl font-extrabold text-white">Create Quiz</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Configure quiz details and add all questions directly on this page.
+          </p>
         </div>
-      </div>
-
-      <!-- SECTION 2: QUESTIONS CONTAINER -->
-      <div class="space-y-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/80 pb-3">
-          <div>
-            <h4 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <span>Questions</span>
-              <span id="questionCountBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold">0 / 10</span>
-            </h4>
-            <p id="questionQuotaHint" class="text-xs text-amber-400 mt-1">10 questions are required. Please add 10 questions.</p>
-          </div>
-
-          <button type="button" onclick="addNewQuestionCard()" class="btn-primary text-xs py-2 px-3 self-start sm:self-auto">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            + Add Another Question
-          </button>
-        </div>
-
-        <!-- Dynamic Question Cards List -->
-        <div id="builderQuestionsList" class="space-y-4">
-          <!-- Dynamically populated question cards -->
-        </div>
-
-        <!-- Bottom Add Button -->
-        <div class="pt-2 text-center">
-          <button type="button" onclick="addNewQuestionCard()" class="w-full py-3 border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-800/40 hover:bg-slate-800/80 text-slate-300 hover:text-white rounded-2xl text-sm font-bold transition flex items-center justify-center gap-2">
-            <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            + Add Another Question
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal Action Footer -->
-    <div class="p-5 border-t border-slate-700/80 bg-slate-800/95 sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3">
-      <button type="button" onclick="closeModal('quizModal')" class="btn-secondary">Cancel</button>
-
-      <div class="flex items-center gap-3">
-        <button type="button" onclick="saveQuizBuilder('Draft')" class="px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-bold transition flex items-center gap-2">
-          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-          <span>Save as Draft</span>
-        </button>
-
-        <button type="button" onclick="saveQuizBuilder('Published')" class="btn-primary py-2.5 px-5 text-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-          <span id="quizPublishBtnLabel">Publish Quiz</span>
+        <button onclick="closeModal('quizModal')"
+          class="text-slate-400 hover:text-white transition p-1.5 rounded-lg hover:bg-slate-700">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
-    </div>
-  </div>
-</div>
 
-<!-- Standalone Question Modal (for editing single question from Questions view) -->
-<div id="questionModal" class="modal-overlay hidden">
-  <div class="modal-box-lg">
-    <div class="flex items-center justify-between p-6 border-b border-slate-700">
-      <h3 id="questionModalTitle" class="text-lg font-bold text-white">Add Question</h3>
-      <button onclick="closeModal('questionModal')" class="text-slate-400 hover:text-white transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="p-6 space-y-5">
-      <input type="hidden" id="questionId">
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="form-label">Quiz *</label>
-          <select id="questionQuizId" class="form-input">
-            <option value="">Select Quiz</option>
-          </select>
-        </div>
-        <div>
-          <label class="form-label">Subject (Optional)</label>
-          <select id="questionSubjectId" class="form-input">
-            <option value="">No Subject</option>
-          </select>
-        </div>
-      </div>
+      <!-- Modal Scrollable Content -->
+      <div class="p-6 space-y-6 overflow-y-auto flex-1">
+        <input type="hidden" id="quizId">
 
-      <div>
-        <label class="form-label">Question Text *</label>
-        <textarea id="questionText" rows="3" placeholder="Enter the question..." class="form-input resize-none"></textarea>
-      </div>
+        <!-- SECTION 1: QUIZ INFORMATION -->
+        <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-700/70 space-y-4">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Quiz Information
+          </h4>
 
-      <!-- Image Upload -->
-      <div>
-        <label class="form-label">Question Image (Optional)</label>
-        <div id="imageUploadZone" class="upload-zone" onclick="document.getElementById('imageFileInput').click()">
-          <svg class="w-8 h-8 text-slate-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <p class="text-slate-400 text-sm">Click to upload image <span class="text-slate-600">(JPG, PNG, GIF, WebP &mdash; max 5MB)</span></p>
-        </div>
-        <input type="file" id="imageFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
-        <div id="imagePreview" class="mt-3 hidden">
-          <div class="relative inline-block">
-            <img id="imagePreviewImg" src="" alt="Preview" class="max-h-48 rounded-xl border border-slate-700 object-cover">
-            <button onclick="removeImage()" class="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-rose-400 transition">✕</button>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="md:col-span-4">
+              <label class="form-label">Quiz Name *</label>
+              <input type="text" id="quizName" placeholder="e.g. Mathematics Final Exam" class="form-input text-base">
+            </div>
+
+            <div>
+              <label class="form-label">Subject *</label>
+              <select id="quizSubjectId" class="form-input">
+                <option value="">Select Subject</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="form-label">Language / भाषा *</label>
+              <select id="quizLanguage" class="form-input">
+                <option value="en">English (Default)</option>
+                <option value="hi">हिंदी (Hindi)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="form-label">Target Class / कक्षा *</label>
+              <select id="quizTargetClass" class="form-input">
+                <option value="All">All Classes (सभी कक्षाएं)</option>
+                <option value="Class 3">कक्षा 3 (Class 3)</option>
+                <option value="Class 4">कक्षा 4 (Class 4)</option>
+                <option value="Class 5">कक्षा 5 (Class 5)</option>
+                <option value="Class 6">कक्षा 6 (Class 6)</option>
+                <option value="Class 7">कक्षा 7 (Class 7)</option>
+                <option value="Class 8">कक्षा 8 (Class 8)</option>
+                <option value="Class 1">कक्षा 1 (Class 1)</option>
+                <option value="Class 2">कक्षा 2 (Class 2)</option>
+                <option value="Class 9">कक्षा 9 (Class 9)</option>
+                <option value="Class 10">कक्षा 10 (Class 10)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="form-label">Number of Questions *</label>
+              <input type="number" id="quizNumQuestions" min="1" value="10" placeholder="e.g. 10" class="form-input"
+                oninput="updateQuestionsQuotaNotice()">
+            </div>
+
+            <div>
+              <label class="form-label">Time Per Question (Seconds) ⏱️</label>
+              <input type="number" id="quizTimePerQuestion" min="5" max="600" value="30" placeholder="30"
+                class="form-input">
+            </div>
+
+            <div>
+              <label class="form-label">Passing Percentage (%)</label>
+              <input type="number" id="quizPassingPct" min="0" max="100" value="50" placeholder="50" class="form-input">
+            </div>
+
+            <div>
+              <label class="form-label">Total Score / Marks *</label>
+              <input type="number" id="quizTotalScore" min="1" value="20" placeholder="20" class="form-input">
+            </div>
+
+            <div class="md:col-span-4">
+              <label class="form-label">About Quiz / Description</label>
+              <textarea id="quizDescription" rows="2"
+                placeholder="e.g. Hindi grammar, vocabulary, literature and general knowledge questions."
+                class="form-input resize-none text-xs"></textarea>
+            </div>
+
+            <div class="md:col-span-3">
+              <label class="form-label">Custom Examination Instructions (One instruction per line)</label>
+              <textarea id="quizInstructions" rows="3"
+                placeholder="e.g. Read each question carefully.&#10;All questions are mandatory."
+                class="form-input resize-none text-xs"></textarea>
+            </div>
+
+            <div class="md:col-span-1">
+              <label class="form-label">Contact / Helpline</label>
+              <input type="text" id="quizContactInfo" placeholder="e.g. +91 92174 78822" class="form-input text-xs">
+            </div>
           </div>
         </div>
-        <input type="hidden" id="questionImageUrl">
-        <input type="hidden" id="questionImagePublicId">
-        <div id="imageUploadStatus" class="text-xs text-slate-500 mt-1"></div>
+
+        <!-- SECTION 2: QUESTIONS CONTAINER -->
+        <div class="space-y-4">
+          <div
+            class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/80 pb-3">
+            <div>
+              <h4 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span>Questions</span>
+                <span id="questionCountBadge"
+                  class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold">0 /
+                  10</span>
+              </h4>
+              <p id="questionQuotaHint" class="text-xs text-amber-400 mt-1">10 questions are required. Please add 10
+                questions.</p>
+            </div>
+
+            <button type="button" onclick="addNewQuestionCard()"
+              class="btn-primary text-xs py-2 px-3 self-start sm:self-auto">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              + Add Another Question
+            </button>
+          </div>
+
+          <!-- Dynamic Question Cards List -->
+          <div id="builderQuestionsList" class="space-y-4">
+            <!-- Dynamically populated question cards -->
+          </div>
+
+          <!-- Bottom Add Button -->
+          <div class="pt-2 text-center">
+            <button type="button" onclick="addNewQuestionCard()"
+              class="w-full py-3 border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-800/40 hover:bg-slate-800/80 text-slate-300 hover:text-white rounded-2xl text-sm font-bold transition flex items-center justify-center gap-2">
+              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              + Add Another Question
+            </button>
+          </div>
+        </div>
       </div>
 
-      <!-- Audio Upload -->
-      <div>
-        <label class="form-label">Question Audio (Optional)</label>
-        <div id="audioUploadZone" class="upload-zone" onclick="document.getElementById('audioFileInput').click()">
-          <svg class="w-8 h-8 text-slate-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
-          <p class="text-slate-400 text-sm">Click to upload audio <span class="text-slate-600">(MP3, WAV, M4A, OGG &mdash; max 20MB)</span></p>
-        </div>
-        <input type="file" id="audioFileInput" accept="audio/*" class="hidden" onchange="handleAudioUpload(event)">
-        <div id="audioPreview" class="mt-3 hidden">
-          <audio id="audioPreviewPlayer" controls class="w-full"></audio>
-          <button onclick="removeAudio()" class="mt-2 text-xs text-rose-400 hover:text-rose-300">✕ Remove audio</button>
-        </div>
-        <input type="hidden" id="questionAudioUrl">
-        <input type="hidden" id="questionAudioPublicId">
-        <div id="audioUploadStatus" class="text-xs text-slate-500 mt-1"></div>
-      </div>
+      <!-- Modal Action Footer -->
+      <div
+        class="p-5 border-t border-slate-700/80 bg-slate-800/95 sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3">
+        <button type="button" onclick="closeModal('quizModal')" class="btn-secondary">Cancel</button>
 
-      <!-- Options -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="form-label"><span class="bg-indigo-600 text-white px-1.5 py-0.5 rounded text-xs font-bold mr-1">A</span>Option A *</label>
-          <input type="text" id="optionA" placeholder="Option A" class="form-input">
-        </div>
-        <div>
-          <label class="form-label"><span class="bg-indigo-600 text-white px-1.5 py-0.5 rounded text-xs font-bold mr-1">B</span>Option B *</label>
-          <input type="text" id="optionB" placeholder="Option B" class="form-input">
-        </div>
-        <div>
-          <label class="form-label"><span class="bg-indigo-600 text-white px-1.5 py-0.5 rounded text-xs font-bold mr-1">C</span>Option C *</label>
-          <input type="text" id="optionC" placeholder="Option C" class="form-input">
-        </div>
-        <div>
-          <label class="form-label"><span class="bg-indigo-600 text-white px-1.5 py-0.5 rounded text-xs font-bold mr-1">D</span>Option D *</label>
-          <input type="text" id="optionD" placeholder="Option D" class="form-input">
+        <div class="flex items-center gap-3">
+          <button type="button" onclick="saveQuizBuilder('Draft')"
+            class="px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-bold transition flex items-center gap-2">
+            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+            <span>Save as Draft</span>
+          </button>
+
+          <button type="button" onclick="saveQuizBuilder('Published')" class="btn-primary py-2.5 px-5 text-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span id="quizPublishBtnLabel">Publish Quiz</span>
+          </button>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="grid grid-cols-2 gap-4">
+  <!-- Standalone Question Modal (for editing single question from Questions view) -->
+  <div id="questionModal" class="modal-overlay hidden">
+    <div class="modal-box-lg">
+      <div class="flex items-center justify-between p-6 border-b border-slate-700">
+        <h3 id="questionModalTitle" class="text-lg font-bold text-white">Add Question</h3>
+        <button onclick="closeModal('questionModal')" class="text-slate-400 hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-5">
+        <input type="hidden" id="questionId">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">Quiz *</label>
+            <select id="questionQuizId" class="form-input">
+              <option value="">Select Quiz</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Subject (Optional)</label>
+            <select id="questionSubjectId" class="form-input">
+              <option value="">No Subject</option>
+            </select>
+          </div>
+        </div>
+
         <div>
-          <label class="form-label">Correct Answer *</label>
-          <select id="correctAnswer" class="form-input">
-            <option value="">Select correct option</option>
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="D">D</option>
+          <label class="form-label">Question Text *</label>
+          <textarea id="questionText" rows="3" placeholder="Enter the question..."
+            class="form-input resize-none"></textarea>
+        </div>
+
+        <!-- Image Upload -->
+        <div>
+          <label class="form-label">Question Image (Optional)</label>
+          <div id="imageUploadZone" class="upload-zone" onclick="document.getElementById('imageFileInput').click()">
+            <svg class="w-8 h-8 text-slate-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p class="text-slate-400 text-sm">Click to upload image <span class="text-slate-600">(JPG, PNG, GIF, WebP
+                &mdash; max 5MB)</span></p>
+          </div>
+          <input type="file" id="imageFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+          <div id="imagePreview" class="mt-3 hidden">
+            <div class="relative inline-block">
+              <img id="imagePreviewImg" src="" alt="Preview"
+                class="max-h-48 rounded-xl border border-slate-700 object-cover">
+              <button onclick="removeImage()"
+                class="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-rose-400 transition">✕</button>
+            </div>
+          </div>
+          <input type="hidden" id="questionImageUrl">
+          <input type="hidden" id="questionImagePublicId">
+          <div id="imageUploadStatus" class="text-xs text-slate-500 mt-1"></div>
+        </div>
+
+        <!-- Audio Upload -->
+        <div>
+          <label class="form-label">Question Audio (Optional)</label>
+          <div id="audioUploadZone" class="upload-zone" onclick="document.getElementById('audioFileInput').click()">
+            <svg class="w-8 h-8 text-slate-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+            </svg>
+            <p class="text-slate-400 text-sm">Click to upload audio <span class="text-slate-600">(MP3, WAV, M4A, OGG
+                &mdash; max 20MB)</span></p>
+          </div>
+          <input type="file" id="audioFileInput" accept="audio/*" class="hidden" onchange="handleAudioUpload(event)">
+          <div id="audioPreview" class="mt-3 hidden">
+            <audio id="audioPreviewPlayer" controls class="w-full"></audio>
+            <button onclick="removeAudio()" class="mt-2 text-xs text-rose-400 hover:text-rose-300">✕ Remove
+              audio</button>
+          </div>
+          <input type="hidden" id="questionAudioUrl">
+          <input type="hidden" id="questionAudioPublicId">
+          <div id="audioUploadStatus" class="text-xs text-slate-500 mt-1"></div>
+        </div>
+
+        <!-- Options -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="form-label"><span
+                class="bg-indigo-600 text-white px-1.5 py-0.5 rounded text-xs font-bold mr-1">A</span>Option A *</label>
+            <input type="text" id="optionA" placeholder="Option A" class="form-input">
+          </div>
+          <div>
+            <label class="form-label"><span
+                class="bg-indigo-600 text-white px-1.5 py-0.5 rounded text-xs font-bold mr-1">B</span>Option B *</label>
+            <input type="text" id="optionB" placeholder="Option B" class="form-input">
+          </div>
+          <div>
+            <label class="form-label"><span
+                class="bg-indigo-600 text-white px-1.5 py-0.5 rounded text-xs font-bold mr-1">C</span>Option C *</label>
+            <input type="text" id="optionC" placeholder="Option C" class="form-input">
+          </div>
+          <div>
+            <label class="form-label"><span
+                class="bg-indigo-600 text-white px-1.5 py-0.5 rounded text-xs font-bold mr-1">D</span>Option D *</label>
+            <input type="text" id="optionD" placeholder="Option D" class="form-input">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">Correct Answer *</label>
+            <select id="correctAnswer" class="form-input">
+              <option value="">Select correct option</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Explanation (Optional)</label>
+            <input type="text" id="explanation" placeholder="Explain the correct answer..." class="form-input">
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-3 p-6 border-t border-slate-700">
+        <button onclick="saveQuestion()" class="btn-primary flex-1 justify-center">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <span id="questionSaveLabel">Add Question</span>
+        </button>
+        <button onclick="closeModal('questionModal')" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subject Modal -->
+  <div id="subjectModal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:440px">
+      <div class="flex items-center justify-between p-6 border-b border-slate-700">
+        <h3 id="subjectModalTitle" class="text-lg font-bold text-white">Add Subject</h3>
+        <button onclick="closeModal('subjectModal')" class="text-slate-400 hover:text-white"><svg class="w-5 h-5"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg></button>
+      </div>
+      <div class="p-6">
+        <input type="hidden" id="subjectId">
+        <label class="form-label">Subject Name *</label>
+        <input type="text" id="subjectName" placeholder="e.g. Mathematics" class="form-input">
+      </div>
+      <div class="flex gap-3 p-6 border-t border-slate-700">
+        <button onclick="saveSubject()" class="btn-primary flex-1 justify-center"><span id="subjectSaveLabel">Add
+            Subject</span></button>
+        <button onclick="closeModal('subjectModal')" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Class Modal -->
+  <div id="classModal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:480px">
+      <div class="flex items-center justify-between p-6 border-b border-slate-700">
+        <h3 id="classModalTitle" class="text-lg font-bold text-white">Add Class</h3>
+        <button onclick="closeModal('classModal')" class="text-slate-400 hover:text-white"><svg class="w-5 h-5"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg></button>
+      </div>
+      <div class="p-6 space-y-4">
+        <input type="hidden" id="classId">
+        <div>
+          <label class="form-label">Class Identifier (e.g. Class 9) *</label>
+          <input type="text" id="className" placeholder="e.g. Class 9" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">Display Name in Hindi (e.g. कक्षा 9) *</label>
+          <input type="text" id="classDisplayHindi" placeholder="e.g. कक्षा 9" class="form-input">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">Sort Order *</label>
+            <input type="number" id="classOrder" placeholder="e.g. 9" class="form-input" value="9">
+          </div>
+          <div class="flex flex-col justify-end pb-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="classIsActive"
+                class="rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500 h-4 w-4" checked>
+              <span class="text-sm font-medium text-slate-300">Active (दिखाई दे)</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Assigned Quiz (इस कक्षा को कौन सा क्विज़ देना है)</label>
+          <select id="classAssignedQuiz" class="form-input">
+            <option value="">-- No Quiz Assigned (None) --</option>
           </select>
-        </div>
-        <div>
-          <label class="form-label">Explanation (Optional)</label>
-          <input type="text" id="explanation" placeholder="Explain the correct answer..." class="form-input">
+          <p class="text-xs text-slate-400 mt-1">जब विद्यार्थी यह कक्षा चुनेगा तो यही क्विज़ लोड होगा।</p>
         </div>
       </div>
-    </div>
-    <div class="flex gap-3 p-6 border-t border-slate-700">
-      <button onclick="saveQuestion()" class="btn-primary flex-1 justify-center">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-        <span id="questionSaveLabel">Add Question</span>
-      </button>
-      <button onclick="closeModal('questionModal')" class="btn-secondary">Cancel</button>
+      <div class="flex gap-3 p-6 border-t border-slate-700">
+        <button onclick="saveClass()" class="btn-primary flex-1 justify-center"><span id="classSaveLabel">Save
+            Class</span></button>
+        <button onclick="closeModal('classModal')" class="btn-secondary">Cancel</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Subject Modal -->
-<div id="subjectModal" class="modal-overlay hidden">
-  <div class="modal-box" style="max-width:440px">
-    <div class="flex items-center justify-between p-6 border-b border-slate-700">
-      <h3 id="subjectModalTitle" class="text-lg font-bold text-white">Add Subject</h3>
-      <button onclick="closeModal('subjectModal')" class="text-slate-400 hover:text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
-    </div>
-    <div class="p-6">
-      <input type="hidden" id="subjectId">
-      <label class="form-label">Subject Name *</label>
-      <input type="text" id="subjectName" placeholder="e.g. Mathematics" class="form-input">
-    </div>
-    <div class="flex gap-3 p-6 border-t border-slate-700">
-      <button onclick="saveSubject()" class="btn-primary flex-1 justify-center"><span id="subjectSaveLabel">Add Subject</span></button>
-      <button onclick="closeModal('subjectModal')" class="btn-secondary">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- Class Modal -->
-<div id="classModal" class="modal-overlay hidden">
-  <div class="modal-box" style="max-width:480px">
-    <div class="flex items-center justify-between p-6 border-b border-slate-700">
-      <h3 id="classModalTitle" class="text-lg font-bold text-white">Add Class</h3>
-      <button onclick="closeModal('classModal')" class="text-slate-400 hover:text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
-    </div>
-    <div class="p-6 space-y-4">
-      <input type="hidden" id="classId">
-      <div>
-        <label class="form-label">Class Identifier (e.g. Class 9) *</label>
-        <input type="text" id="className" placeholder="e.g. Class 9" class="form-input">
-      </div>
-      <div>
-        <label class="form-label">Display Name in Hindi (e.g. कक्षा 9) *</label>
-        <input type="text" id="classDisplayHindi" placeholder="e.g. कक्षा 9" class="form-input">
-      </div>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="form-label">Sort Order *</label>
-          <input type="number" id="classOrder" placeholder="e.g. 9" class="form-input" value="9">
+  <!-- Confirm Delete Modal -->
+  <div id="confirmModal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:400px">
+      <div class="p-6 text-center">
+        <div class="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto mb-4">
+          <svg class="w-6 h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
         </div>
-        <div class="flex flex-col justify-end pb-2">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" id="classIsActive" class="rounded bg-slate-700 border-slate-600 text-indigo-600 focus:ring-indigo-500 h-4 w-4" checked>
-            <span class="text-sm font-medium text-slate-300">Active (दिखाई दे)</span>
-          </label>
+        <h3 class="text-lg font-bold text-white mb-2" id="confirmTitle">Are you sure?</h3>
+        <p class="text-slate-400 text-sm mb-6" id="confirmMessage">This action cannot be undone.</p>
+        <div class="flex gap-3">
+          <button onclick="executeConfirm()" class="btn-danger flex-1 justify-center" id="confirmBtn">Delete</button>
+          <button onclick="closeModal('confirmModal')" class="btn-secondary flex-1 justify-center">Cancel</button>
         </div>
       </div>
-      <div>
-        <label class="form-label">Assigned Quiz (इस कक्षा को कौन सा क्विज़ देना है)</label>
-        <select id="classAssignedQuiz" class="form-input">
-          <option value="">-- No Quiz Assigned (None) --</option>
-        </select>
-        <p class="text-xs text-slate-400 mt-1">जब विद्यार्थी यह कक्षा चुनेगा तो यही क्विज़ लोड होगा।</p>
-      </div>
-    </div>
-    <div class="flex gap-3 p-6 border-t border-slate-700">
-      <button onclick="saveClass()" class="btn-primary flex-1 justify-center"><span id="classSaveLabel">Save Class</span></button>
-      <button onclick="closeModal('classModal')" class="btn-secondary">Cancel</button>
     </div>
   </div>
-</div>
 
-<!-- Confirm Delete Modal -->
-<div id="confirmModal" class="modal-overlay hidden">
-  <div class="modal-box" style="max-width:400px">
-    <div class="p-6 text-center">
-      <div class="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center mx-auto mb-4">
-        <svg class="w-6 h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+  <!-- Preview Question Modal -->
+  <div id="previewModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="flex items-center justify-between p-6 border-b border-slate-700">
+        <h3 class="text-lg font-bold text-white">Question Preview</h3>
+        <button onclick="closeModal('previewModal')" class="text-slate-400 hover:text-white"><svg class="w-5 h-5"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg></button>
       </div>
-      <h3 class="text-lg font-bold text-white mb-2" id="confirmTitle">Are you sure?</h3>
-      <p class="text-slate-400 text-sm mb-6" id="confirmMessage">This action cannot be undone.</p>
-      <div class="flex gap-3">
-        <button onclick="executeConfirm()" class="btn-danger flex-1 justify-center" id="confirmBtn">Delete</button>
-        <button onclick="closeModal('confirmModal')" class="btn-secondary flex-1 justify-center">Cancel</button>
-      </div>
+      <div id="previewContent" class="p-6 space-y-4"></div>
     </div>
   </div>
-</div>
 
-<!-- Preview Question Modal -->
-<div id="previewModal" class="modal-overlay hidden">
-  <div class="modal-box">
-    <div class="flex items-center justify-between p-6 border-b border-slate-700">
-      <h3 class="text-lg font-bold text-white">Question Preview</h3>
-      <button onclick="closeModal('previewModal')" class="text-slate-400 hover:text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
-    </div>
-    <div id="previewContent" class="p-6 space-y-4"></div>
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
+    <div id="toastMsg"
+      class="px-5 py-3.5 rounded-2xl text-sm font-semibold shadow-2xl flex items-center gap-2.5 fade-in"></div>
   </div>
-</div>
 
-<!-- Toast -->
-<div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
-  <div id="toastMsg" class="px-5 py-3.5 rounded-2xl text-sm font-semibold shadow-2xl flex items-center gap-2.5 fade-in"></div>
-</div>
-
-<script src="/admin/app.js"></script>
+  <script src="/admin/app.js"></script>
 </body>
-</html>
 
+</html>
