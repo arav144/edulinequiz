@@ -38,7 +38,18 @@ export const setCachedStudent = (student: any): void => {
 };
 
 const getApiBaseUrl = (): string => {
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('localhost')) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname !== 'localhost') {
+      if (/^(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[0-1]))/.test(window.location.hostname)) {
+        return `http://${window.location.hostname}:5000`;
+      }
+      return ''; // Use relative path in production (Vercel rewrites)
+    }
+  }
+  return 'http://localhost:5000';
 };
 
 async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -71,7 +82,7 @@ async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}):
 
     return data;
   } catch (error: any) {
-    if (typeof window !== 'undefined' && !url.startsWith('http://localhost:5000')) {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !url.startsWith('http://localhost:5000')) {
       try {
         const fallbackUrl = `http://localhost:5000${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
         const fbRes = await fetch(fallbackUrl, {
@@ -160,7 +171,7 @@ export async function apiDownloadPdf(
   };
 
   let res = await fetch(`${baseUrl}${endpoint}`, { headers });
-  if (!res.ok && typeof window !== 'undefined' && !baseUrl.startsWith('http://localhost:5000')) {
+  if (!res.ok && typeof window !== 'undefined' && window.location.hostname === 'localhost' && !baseUrl.startsWith('http://localhost:5000')) {
     res = await fetch(`http://localhost:5000${endpoint}`, { headers });
   }
 
