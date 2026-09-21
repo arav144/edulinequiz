@@ -1,19 +1,24 @@
 ================================================================================
-  QUIZ SYSTEM — PROJECT SETUP GUIDE
-  Final Clean Structure | Production-Ready | Vercel Deployable
+  QUIZ SYSTEM — PROJECT SETUP & ARCHITECTURE GUIDE
+  Student Registration & Email OTP | Class-Wise Filtering | 1-Attempt Limit
 ================================================================================
 
 PROJECT STRUCTURE
 -----------------
 Quiz-System/
-├── frontend/          ← Student-facing Next.js app (deploy to Vercel)
-├── backend/           ← REST API + Admin Panel (deploy to Vercel)
+├── frontend/          ← Student Portal (Next.js 14, English-only, Responsive)
+├── backend/           ← Express API + MongoDB Atlas + Admin Panel at /admin
 └── PROJECT-SETUP.txt  ← This file
 
 ARCHITECTURE
 ------------
-frontend/   = Student quiz portal ONLY. No admin, no teacher panel.
+frontend/   = Student quiz portal. Complete student registration with email OTP,
+              strict class-wise quiz access, 40s/question timer, English UI,
+              and instant Result/Certificate PDF downloads.
 backend/    = Express REST API + MongoDB + Admin SPA at /admin route.
+              Handles OTP generation & verification, class-wise filtering,
+              1 student = 1 attempt enforcement, server-side grading,
+              and PDFKit Result/Certificate PDF generation.
 
 The Admin Panel lives at: backend/public/admin/ (static SPA served by Express)
 Students access: http://localhost:3000
@@ -29,9 +34,7 @@ LOCATION: Quiz-System/backend/
    cd backend
    npm install
 
-2. Create environment file:
-   Copy .env.example to .env and fill in your values:
-
+2. Environment configuration (.env):
    PORT=5000
    NODE_ENV=development
    MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<dbname>?retryWrites=true&w=majority
@@ -39,6 +42,14 @@ LOCATION: Quiz-System/backend/
    FRONTEND_URL=http://localhost:3000
    ADMIN_USERNAME=admin
    ADMIN_PASSWORD=your_admin_password
+
+   # Email Service (Optional for Production Email Dispatch)
+   RESEND_API_KEY=re_your_api_key_here
+   # OR SMTP configuration:
+   # SMTP_HOST=smtp.gmail.com
+   # SMTP_PORT=587
+   # SMTP_USER=your_email@gmail.com
+   # SMTP_PASS=your_app_password
 
    # Cloudinary (Image & Audio Uploads)
    CLOUDINARY_CLOUD_NAME=ulk2jofl
@@ -49,25 +60,24 @@ LOCATION: Quiz-System/backend/
    npm start          ← Production
    npm run dev        ← Development
 
-4. Verify it works:
+4. Verify backend:
    http://localhost:5000/api/health   ← API health check
    http://localhost:5000/admin        ← Admin Panel
 
-BACKEND ROUTES
---------------
-POST   /api/auth/login                  ← Admin login
-GET    /api/subjects                    ← List subjects
-GET    /api/quizzes                     ← List available quizzes (student)
-POST   /api/quizzes/verify-student      ← Verify student ID before quiz
-GET    /api/quizzes/:id/questions       ← Get quiz questions (student)
-POST   /api/quizzes/:id/submit          ← Submit quiz attempt (student)
-GET    /api/results/:id                 ← Get attempt result (student)
-GET    /api/results/:id/pdf             ← Download Result Report PDF (A4 Portrait)
-GET    /api/results/:id/certificate     ← Download Passing Certificate PDF (A4 Landscape)
-GET    /api/admin/stats                 ← Dashboard stats (admin)
-GET    /api/admin/quizzes               ← All quizzes (admin)
-POST   /api/admin/quizzes               ← Create quiz (admin)
-PUT    /api/admin/quizzes/:id           ← Update quiz (admin)
+STUDENT AUTHENTICATION & QUIZ API ROUTES
+-----------------------------------------
+POST   /api/auth/send-otp               ← Send 6-digit OTP to student email
+POST   /api/auth/verify-otp             ← Verify 6-digit OTP -> return verificationToken
+POST   /api/auth/register               ← Submit student details & receive JWT token
+GET    /api/auth/me                     ← Get authenticated student profile
+GET    /api/quizzes/available           ← List quizzes filtered by student class
+GET    /api/quizzes/:id/start           ← Start quiz (enforces class eligibility & 1 attempt)
+POST   /api/quizzes/:id/attempt         ← Submit answers, grade server-side, record attempt
+GET    /api/results/:id                 ← Get attempt result & score breakdown
+GET    /api/results/:id/pdf             ← Download Result Report PDF (No dates/times)
+GET    /api/results/:id/certificate     ← Download Passing Certificate PDF (No dates/times)
+GET    /api/admin/students              ← List all registered students (Admin only)
+GET    /api/admin/students/:id          ← Get student detail & attempt history (Admin only)    /api/admin/quizzes/:id           ← Update quiz (admin)
 DELETE /api/admin/quizzes/:id           ← Delete quiz (admin)
 GET    /api/admin/questions             ← All questions (admin)
 POST   /api/admin/questions             ← Add question with image/audio (admin)
@@ -185,6 +195,6 @@ Terminal 2 — Frontend:
 
 Admin Panel: http://localhost:5000/admin
   Username: admin
-  Password: admin123
+  Password: eduline@2026
 
 ================================================================================

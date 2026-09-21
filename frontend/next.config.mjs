@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  compress: true,
+  poweredByHeader: false,
+  swcMinify: true,
+  images: {
+    formats: ['image/avif', 'image/webp'],
+  },
   async rewrites() {
     const backendUrl =
       process.env.NEXT_PUBLIC_API_URL ||

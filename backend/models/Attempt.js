@@ -69,8 +69,7 @@ const attemptSchema = new mongoose.Schema(
     },
     result: {
       type: String,
-      enum: ['Pass', 'Fail'],
-      default: 'Fail',
+      default: 'Better Luck Next Time',
     },
     certificateId: {
       type: String,

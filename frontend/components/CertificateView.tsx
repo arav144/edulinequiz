@@ -80,86 +80,108 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
       await new Promise<void>((resolve, reject) => {
         bgImg.onload = () => resolve();
         bgImg.onerror = () => reject(new Error('Failed to load certificate template image'));
-        bgImg.src = '/img/certificate_framepdf.jpeg';
+        bgImg.src = '/img/certificate_framepdf.jpg';
       });
 
-      const W = bgImg.naturalWidth || 4488;
-      const H = bgImg.naturalHeight || 3236;
+      const W = bgImg.naturalWidth || 2560;
+      const H = bgImg.naturalHeight || 1846;
       canvas.width = W;
       canvas.height = H;
 
       // 1. Draw Template Frame Image
       ctx.drawImage(bgImg, 0, 0, W, H);
 
-      // Proportional font sizing: baseline 595.28 points height (matching PDF standard)
-      // On 3236px height, fontScale = 3236 / 595.28 ~= 5.436
-      const fontScale = H / 595.28;
+      // Proportional font sizing: baseline 1846px height
+      const fontScale = H / 1846;
 
-      const nameFontSize = Math.round(23 * fontScale);        // ~125px on 4488x3236
-      const classFontSize = Math.round(13.5 * fontScale);      // ~73px on 4488x3236
-      const schoolFontSize = Math.round(12.5 * fontScale);     // ~68px on 4488x3236
-      const marksFontSize = Math.round(13.5 * fontScale);      // ~73px on 4488x3236
-      const percentageFontSize = Math.round(13.5 * fontScale); // ~73px on 4488x3236
-      const resultFontSize = Math.round(13.5 * fontScale);     // ~73px on 4488x3236
-      const dateFontSize = Math.round(11.5 * fontScale);       // ~62px on 4488x3236
-      const certIdFontSize = Math.round(11 * fontScale);       // ~60px on 4488x3236
+      const nameFontSize = Math.round(72 * fontScale);
+      const classFontSize = Math.round(40 * fontScale);
+      const schoolFontSize = Math.round(38 * fontScale);
+      const marksFontSize = Math.round(42 * fontScale);
+      const percentageFontSize = Math.round(42 * fontScale);
+      const resultFontSize = Math.round(40 * fontScale);
+      const dateFontSize = Math.round(32 * fontScale);
+      const certIdFontSize = Math.round(31 * fontScale);
 
       ctx.fillStyle = '#0F172A';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      // 1. Candidate Name (Centered over name line)
+      // 1. Candidate Name (Empty space Y=905..1065, Center Y = 52.5%)
       let curNameSize = nameFontSize;
       ctx.font = `bold ${curNameSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
       const maxNameW = W * 0.58;
-      while (ctx.measureText(studentDisplayName).width > maxNameW && curNameSize > 50) {
-        curNameSize -= 4;
+      while (ctx.measureText(studentDisplayName).width > maxNameW && curNameSize > 30) {
+        curNameSize -= 3;
         ctx.font = `bold ${curNameSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
       }
-      ctx.fillText(studentDisplayName, W / 2, H * 0.455);
+      ctx.fillText(studentDisplayName, W * 0.50, H * 0.525);
 
-      // 2. Class (Prominent and bold, centered over class underline)
+      // 2. Class (Underline Y = 69.88%, Underline X = 33.01%..44.92%, Center X = 38.96%)
       ctx.font = `bold ${classFontSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
-      ctx.fillText(displayClass, W * 0.275, H * 0.633);
+      ctx.fillText(displayClass, W * 0.390, H * 0.686);
 
-      // 3. School / Vidyalay (Left-aligned, bold)
+      // 3. School / Vidyalay (Underline Y = 69.88%, Underline X = 60.90%..72.81%, Left X = 61.0%)
       ctx.textAlign = 'left';
       let curSchoolSize = schoolFontSize;
       ctx.font = `bold ${curSchoolSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
-      const maxSchoolW = W * 0.32;
-      while (ctx.measureText(displaySchool).width > maxSchoolW && curSchoolSize > 35) {
-        curSchoolSize -= 3;
+      const maxSchoolW = W * 0.22;
+      while (ctx.measureText(displaySchool).width > maxSchoolW && curSchoolSize > 20) {
+        curSchoolSize -= 2;
         ctx.font = `bold ${curSchoolSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
       }
-      ctx.fillText(displaySchool, W * 0.560, H * 0.633);
+      ctx.fillText(displaySchool, W * 0.610, H * 0.686);
 
-      // 4. Score Box: Marks (Bold, clearly legible)
+      // 4. Score Box: Marks (Underline Y = 74.32%, Underline X = 19.84%..31.76%, Center X = 25.80%)
       ctx.textAlign = 'center';
       ctx.font = `bold ${marksFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
-      ctx.fillText(`${submissionResult.score} / ${submissionResult.totalQuestions}`, W * 0.268, H * 0.730);
+      ctx.fillText(`${submissionResult.score} / ${submissionResult.totalQuestions}`, W * 0.258, H * 0.730);
 
-      // 5. Score Box: Percentage (Bold, clearly legible)
+      // 5. Score Box: Percentage (Underline Y = 74.32%, Underline X = 49.73%..61.64%, Center X = 55.68%)
       ctx.font = `bold ${percentageFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
-      ctx.fillText(`${submissionResult.percentage}%`, W * 0.522, H * 0.730);
+      ctx.fillText(`${submissionResult.percentage}%`, W * 0.557, H * 0.730);
 
-      // 6. Score Box: Result (Bold Pass/Fail with high-contrast color)
-      ctx.fillStyle = isPassed ? '#15803D' : '#B91C1C';
-      ctx.font = `bold ${resultFontSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
-      ctx.fillText(
-        isPassed ? (isHindiMode ? 'उत्तीर्ण' : 'Pass') : (isHindiMode ? 'अनुत्तीर्ण' : 'Fail'),
-        W * 0.784,
-        H * 0.730
-      );
+      // 6. Score Box: Result (Underline Y = 74.32%, Underline X = 75.08%..87.03%, Center X = 81.05%)
+      const pctVal = submissionResult.percentage ?? 0;
+      let displayResult = '';
+      let resultColor = '#15803D';
 
-      // 7. Date (Bold, clearly legible)
+      if (pctVal >= 90) {
+        displayResult = isHindiMode ? 'उत्कृष्ट' : 'Outstanding';
+        resultColor = '#15803D';
+      } else if (pctVal >= 75) {
+        displayResult = isHindiMode ? 'अति उत्तम' : 'Very Good';
+        resultColor = '#15803D';
+      } else if (pctVal >= 60) {
+        displayResult = isHindiMode ? 'सराहनीय' : 'Good Effort';
+        resultColor = '#0284C7';
+      } else if (pctVal >= 50) {
+        displayResult = isHindiMode ? 'उत्तीर्ण' : 'Passed';
+        resultColor = '#0284C7';
+      } else {
+        displayResult = isHindiMode ? 'पुनः प्रयास करें' : 'Better Luck Next Time';
+        resultColor = '#D97706';
+      }
+
+      ctx.fillStyle = resultColor;
+      let curResultSize = displayResult.length > 15 ? Math.round(resultFontSize * 0.65) : resultFontSize;
+      ctx.font = `bold ${curResultSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+      const maxResultW = W * 0.12;
+      while (ctx.measureText(displayResult).width > maxResultW && curResultSize > 14) {
+        curResultSize -= 2;
+        ctx.font = `bold ${curResultSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+      }
+      ctx.fillText(displayResult, W * 0.811, H * 0.730);
+
+      // 7. Date (Underline Y = 80.93%, Underline X = 24.41%..36.33%, Center X = 30.37%)
       ctx.fillStyle = '#1E293B';
-      ctx.textAlign = 'left';
+      ctx.textAlign = 'center';
       ctx.font = `bold ${dateFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
-      ctx.fillText(dateStr, W * 0.312, H * 0.823);
+      ctx.fillText(dateStr, W * 0.304, H * 0.798);
 
-      // 8. Certificate ID (Bold, clearly legible)
+      // 8. Certificate ID (Underline Y = 85.59%, Underline X = 24.38%..36.29%, Center X = 30.33%)
       ctx.font = `bold ${certIdFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
-      ctx.fillText(certId, W * 0.290, H * 0.866);
+      ctx.fillText(certId, W * 0.304, H * 0.845);
 
       // Trigger Download
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
@@ -192,7 +214,7 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
           >
             <Download className="w-4 h-4 text-amber-300 flex-shrink-0" />
             <span className="truncate">
-              {downloadingPdf === 'certificate' ? 'डाउनलोड...' : 'PDF'}
+              {downloadingPdf === 'certificate' ? 'Downloading...' : 'PDF'}
             </span>
           </button>
 
@@ -201,12 +223,12 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             type="button"
             onClick={handleDownloadImage}
             disabled={downloadingImg}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 active:scale-95 text-amber-950 font-black text-xs border border-amber-400/80 shadow-md transition-all disabled:opacity-60 cursor-pointer"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl bg-gradient-to-r from-[#2d7995] to-[#1f576c] active:scale-95 text-white font-black text-xs shadow-md transition-all disabled:opacity-60 cursor-pointer"
             title="Download Image (JPG)"
           >
-            <ImageIcon className="w-4 h-4 text-amber-950 flex-shrink-0" />
+            <ImageIcon className="w-4 h-4 text-white flex-shrink-0" />
             <span className="truncate">
-              {downloadingImg ? 'तैयार...' : 'फोटो (JPG)'}
+              {downloadingImg ? 'Generating...' : 'Image (JPG)'}
             </span>
           </button>
 
@@ -215,10 +237,10 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             type="button"
             onClick={onBackToDashboard}
             className="flex items-center justify-center gap-1 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold text-xs transition-all shrink-0 cursor-pointer"
-            title={t.backToDashboard}
+            title="Dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>होम</span>
+            <span>Home</span>
           </button>
         </div>
 
@@ -232,11 +254,9 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
               disabled={downloadingPdf === 'certificate'}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
             >
-              <Download className="w-4 h-4 text-amber-300" />
+              <Download className="w-4 h-4 text-emerald-200" />
               <span>
-                {downloadingPdf === 'certificate'
-                  ? (isHindiMode ? 'PDF डाउनलोड हो रहा है...' : 'Downloading PDF...')
-                  : (isHindiMode ? 'प्रमाण-पत्र डाउनलोड करें (PDF)' : 'Download Certificate (PDF)')}
+                {downloadingPdf === 'certificate' ? 'Downloading Certificate (PDF)...' : 'Download Certificate (PDF)'}
               </span>
             </button>
 
@@ -245,13 +265,11 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
               type="button"
               onClick={handleDownloadImage}
               disabled={downloadingImg}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 hover:brightness-105 text-amber-950 text-xs sm:text-sm font-extrabold border border-amber-400/80 shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#2d7995] to-[#1f576c] hover:from-[#266881] hover:to-[#1a4a5b] text-white text-xs sm:text-sm font-extrabold shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
             >
-              <ImageIcon className="w-4 h-4 text-amber-900" />
+              <ImageIcon className="w-4 h-4 text-white" />
               <span>
-                {downloadingImg
-                  ? (isHindiMode ? 'इमेज तैयार हो रही है...' : 'Generating Image...')
-                  : (isHindiMode ? 'प्रमाण-पत्र डाउनलोड करें (Image / फोटो)' : 'Download Image (JPG)')}
+                {downloadingImg ? 'Generating Image...' : 'Download Image (JPG)'}
               </span>
             </button>
           </div>
@@ -263,7 +281,7 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>{t.backToDashboard}</span>
+            <span>Back to Dashboard</span>
           </button>
         </div>
       </div>
@@ -273,36 +291,36 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
         id="printableCertificate"
         className="relative mx-auto w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-amber-300/40 select-none bg-white"
       >
-        <div className="relative w-full aspect-[1600/1153]">
+        <div className="relative w-full aspect-[2560/1846]">
           {/* Certificate Template Image */}
           <img
-            src="/img/certificate_framepdf.jpeg"
+            src="/img/certificate_framepdf.jpg"
             alt="Certificate of Achievement"
             className="w-full h-full object-contain block pointer-events-none"
           />
 
-          {/* 1. Candidate Name (Line Y=545/1153 = 47.3%, Centered) */}
+          {/* 1. Candidate Name (Empty space Y=905..1065, Center Y = 52.5%) */}
           <div
-            className="absolute flex items-end justify-center pointer-events-none"
+            className="absolute flex items-center justify-center pointer-events-none"
             style={{
-              top: '38.2%',
-              left: '28.0%',
-              width: '44.0%',
-              height: '8.4%',
+              top: '49.5%',
+              left: '15.0%',
+              width: '70.0%',
+              height: '6.0%',
             }}
           >
-            <span className="font-hindi font-black text-slate-950 tracking-wide text-base sm:text-2xl md:text-3xl lg:text-4xl text-center leading-none px-2 truncate">
+            <span className="font-hindi font-black text-slate-950 tracking-wide text-base sm:text-2xl md:text-3xl lg:text-4xl text-center leading-normal px-2 truncate">
               {studentDisplayName}
             </span>
           </div>
 
-          {/* 2. Candidate Class (Line Y=750/1153 = 65.05%, X=352..529 = 22.0%..33.1%) */}
+          {/* 2. Candidate Class (Underline X = 33.0%..44.9%, Width = 11.9%, Y = 69.9%) */}
           <div
             className="absolute flex items-center justify-center pointer-events-none"
             style={{
-              top: '61.5%',
-              left: '22.0%',
-              width: '11.1%',
+              top: '67.0%',
+              left: '33.0%',
+              width: '11.9%',
               height: '3.6%',
             }}
           >
@@ -311,13 +329,13 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             </span>
           </div>
 
-          {/* 3. Candidate School (Line Y=750/1153 = 65.05%, X=895..1379 = 55.9%..86.2%) */}
+          {/* 3. Candidate School (Underline X = 60.9%..72.8%+, Left = 61.0%, Y = 69.9%) */}
           <div
             className="absolute flex items-center justify-start pointer-events-none"
             style={{
-              top: '61.5%',
-              left: '56.0%',
-              width: '30.2%',
+              top: '67.0%',
+              left: '61.0%',
+              width: '23.0%',
               height: '3.6%',
             }}
           >
@@ -326,14 +344,14 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             </span>
           </div>
 
-          {/* 4. Score: Marks (Line Y=860/1153 = 74.6%, X=340..518 = 21.25%..32.38%) */}
+          {/* 4. Score: Marks (Underline X = 19.8%..31.8%, Width = 11.9%, Y = 74.3%) */}
           <div
             className="absolute flex items-center justify-center pointer-events-none"
             style={{
-              top: '71.2%',
-              left: '20.2%',
-              width: '13.0%',
-              height: '3.6%',
+              top: '71.6%',
+              left: '19.8%',
+              width: '11.9%',
+              height: '3.4%',
             }}
           >
             <span className="font-mono font-black text-slate-950 text-[8px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap">
@@ -341,66 +359,85 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             </span>
           </div>
 
-          {/* 5. Score: Percentage (Line Y=860/1153 = 74.6%, X=746..923 = 46.6%..57.7%) */}
+          {/* 5. Score: Percentage (Underline X = 49.7%..61.6%, Width = 11.9%, Y = 74.3%) */}
           <div
             className="absolute flex items-center justify-center pointer-events-none"
             style={{
-              top: '71.2%',
-              left: '46.6%',
-              width: '11.1%',
-              height: '3.6%',
+              top: '71.6%',
+              left: '49.8%',
+              width: '11.9%',
+              height: '3.4%',
             }}
           >
-            <span className="font-mono font-black text-slate-950 text-[11px] sm:text-sm md:text-base lg:text-lg">
+            <span className="font-mono font-black text-slate-950 text-[10px] sm:text-xs md:text-sm lg:text-base">
               {submissionResult.percentage}%
             </span>
           </div>
 
-          {/* 6. Score: Result (Line Y=860/1153 = 74.6%, X=1167..1344 = 72.9%..84.0%) */}
+          {/* 6. Score: Result (Underline X = 75.1%..87.0%, Width = 11.9%, Y = 74.3%) */}
           <div
             className="absolute flex items-center justify-center pointer-events-none"
             style={{
-              top: '71.2%',
-              left: '72.9%',
-              width: '11.1%',
-              height: '3.6%',
+              top: '71.6%',
+              left: '75.1%',
+              width: '12.0%',
+              height: '3.4%',
             }}
           >
             <span
-              className={`font-hindi font-black text-[11px] sm:text-sm md:text-base lg:text-lg ${
-                isPassed ? 'text-emerald-800' : 'text-rose-800'
+              className={`font-hindi font-black whitespace-nowrap text-center tracking-tight leading-none ${
+                (() => {
+                  const p = submissionResult.percentage ?? 0;
+                  const text = p >= 90 ? (isHindiMode ? 'उत्कृष्ट' : 'Outstanding')
+                    : p >= 75 ? (isHindiMode ? 'अति उत्तम' : 'Very Good')
+                    : p >= 60 ? (isHindiMode ? 'सराहनीय' : 'Good Effort')
+                    : p >= 50 ? (isHindiMode ? 'उत्तीर्ण' : 'Passed')
+                    : (isHindiMode ? 'पुनः प्रयास करें' : 'Better Luck Next Time');
+                  return text.length > 15
+                    ? 'text-[7px] sm:text-[9px] md:text-[10px] lg:text-[11px]'
+                    : 'text-[9px] sm:text-xs md:text-sm lg:text-base';
+                })()
+              } ${
+                (submissionResult.percentage ?? 0) >= 50 ? 'text-emerald-800' : 'text-amber-700'
               }`}
             >
-              {isPassed ? (isHindiMode ? 'उत्तीर्ण' : 'Pass') : (isHindiMode ? 'अनुत्तीर्ण' : 'Fail')}
+              {(() => {
+                const p = submissionResult.percentage ?? 0;
+                if (p >= 90) return isHindiMode ? 'उत्कृष्ट' : 'Outstanding';
+                if (p >= 75) return isHindiMode ? 'अति उत्तम' : 'Very Good';
+                if (p >= 60) return isHindiMode ? 'सराहनीय' : 'Good Effort';
+                if (p >= 50) return isHindiMode ? 'उत्तीर्ण' : 'Passed';
+                return isHindiMode ? 'पुनः प्रयास करें' : 'Better Luck Next Time';
+              })()}
             </span>
           </div>
 
-          {/* 7. Issue Date (Line Y=964/1153 = 83.6%, X=492..670 = 30.75%..41.88%) */}
+          {/* 7. Issue Date (Underline X = 24.4%..36.3%, Width = 11.9%, Y = 80.9%) */}
           <div
-            className="absolute flex items-center justify-start pointer-events-none"
+            className="absolute flex items-center justify-center pointer-events-none"
             style={{
-              top: '80.5%',
-              left: '30.75%',
-              width: '20.0%',
-              height: '3.6%',
+              top: '78.5%',
+              left: '24.5%',
+              width: '11.9%',
+              height: '3.0%',
             }}
           >
-            <span className="font-mono font-bold text-slate-900 text-[10px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap">
+            <span className="font-mono font-bold text-slate-900 text-[10px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap text-center">
               {dateStr}
             </span>
           </div>
 
-          {/* 8. Certificate ID (Line Y=1015/1153 = 88.0%, X=461..637 = 28.8%..39.8%) */}
+          {/* 8. Certificate ID (Underline X = 24.4%..36.3%, Width = 11.9%, Y = 85.6%) */}
           <div
-            className="absolute flex items-center justify-start pointer-events-none"
+            className="absolute flex items-center justify-center pointer-events-none"
             style={{
-              top: '84.8%',
-              left: '28.8%',
-              width: '26.0%',
-              height: '3.6%',
+              top: '83.2%',
+              left: '24.5%',
+              width: '11.9%',
+              height: '3.0%',
             }}
           >
-            <span className="font-mono font-bold text-slate-900 text-[10px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap tracking-tight">
+            <span className="font-mono font-bold text-slate-900 text-[9px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap tracking-tight text-center">
               {certId}
             </span>
           </div>

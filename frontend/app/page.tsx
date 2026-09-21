@@ -3,49 +3,92 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import nextDynamic from 'next/dynamic';
 import {
   apiGetAvailableQuizzes,
-  apiGetSubjects,
-  apiGetClasses,
-  apiVerifyStudent,
   apiStartQuiz,
   apiSubmitAttempt,
   apiDownloadPdf,
+  apiGetMe,
+  clearStudentToken,
+  getCachedStudent,
+  setCachedStudent,
+  IThemeSettings,
+  DEFAULT_THEME_SETTINGS,
+  apiGetTheme,
+  resolveMediaUrl,
 } from '@/services/api';
 import { Header } from '@/components/Header';
 import { HeroSection } from '@/components/HeroSection';
-import { McqExamination } from '@/components/McqExamination';
-import { CertificateView } from '@/components/CertificateView';
-import { QuestionReview } from '@/components/QuestionReview';
-import { CertificateLoadingModal } from '@/components/CertificateLoadingModal';
-import { AlreadyAttemptedModal } from '@/components/AlreadyAttemptedModal';
+import { QuizShowcaseSection } from '@/components/QuizShowcaseSection';
+import { QuizInstructionsView } from '@/components/QuizInstructionsView';
+import { SocialPlatformsFooter } from '@/components/SocialPlatformsFooter';
 import {
-  getDeviceStudentId,
-  hasAttemptedQuiz,
   recordQuizAttempt,
   getSavedAttempt,
   ISavedAttempt,
 } from '@/components/attemptTracker';
 import {
-  InstructionsModal,
-  ContactModal,
-  ConfirmSubmitModal,
-} from '@/components/Modals';
-import { FloatingHindiLetters } from '@/components/FloatingHindiLetters';
-import { QuizShowcaseSection } from '@/components/QuizShowcaseSection';
-import { PortalLoadingScreen } from '@/components/PortalLoadingScreen';
-import { formatQuizTitle } from '@/components/quizUtils';
-import {
   IQuizSummary,
   IQuestionItem,
   ISubmissionResult,
-  IClassLevel,
-  Language,
+  IStudentProfile,
   TRANSLATIONS,
 } from '@/components/types';
+import { AlertCircle, X, CalendarDays, UserPlus, LogIn } from 'lucide-react';
+
+// ── Code-split heavy modals and examination/result components (Zero initial bundle bloat) ──
+const McqExamination = nextDynamic(
+  () => import('@/components/McqExamination').then((m) => m.McqExamination),
+  { ssr: false }
+);
+const CertificateView = nextDynamic(
+  () => import('@/components/CertificateView').then((m) => m.CertificateView),
+  { ssr: false }
+);
+const QuestionReview = nextDynamic(
+  () => import('@/components/QuestionReview').then((m) => m.QuestionReview),
+  { ssr: false }
+);
+const CertificateLoadingModal = nextDynamic(
+  () => import('@/components/CertificateLoadingModal').then((m) => m.CertificateLoadingModal),
+  { ssr: false }
+);
+const AlreadyAttemptedModal = nextDynamic(
+  () => import('@/components/AlreadyAttemptedModal').then((m) => m.AlreadyAttemptedModal),
+  { ssr: false }
+);
+const StudentRegistrationModal = nextDynamic(
+  () => import('@/components/StudentRegistrationModal').then((m) => m.StudentRegistrationModal),
+  { ssr: false }
+);
+const StudentProfileModal = nextDynamic(
+  () => import('@/components/StudentProfileModal').then((m) => m.StudentProfileModal),
+  { ssr: false }
+);
+const InstructionsModal = nextDynamic(
+  () => import('@/components/Modals').then((m) => m.InstructionsModal),
+  { ssr: false }
+);
+const ContactModal = nextDynamic(
+  () => import('@/components/Modals').then((m) => m.ContactModal),
+  { ssr: false }
+);
+const ConfirmSubmitModal = nextDynamic(
+  () => import('@/components/Modals').then((m) => m.ConfirmSubmitModal),
+  { ssr: false }
+);
+
+// ── Helper to format date nicely ──────────────────────────────────
+function fmtDate(raw?: string | Date | null): string {
+  if (!raw) return '';
+  const d = typeof raw === 'string' ? new Date(raw) : raw;
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 export default function StudentPortalPage() {
-  // Navigation & modals
+  // ── Modals & UI State ─────────────────────────────────────────────
   const [showInstructionsModal, setShowInstructionsModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -56,30 +99,32 @@ export default function StudentPortalPage() {
     savedAttempt: ISavedAttempt | null;
   } | null>(null);
 
-  // Student registration form state
+  // ── Auth Modal: 'signup' | 'signin' | 'edit' | null ────────────────────────
+  const [authModal, setAuthModal] = useState<'signup' | 'signin' | 'edit' | null>(null);
+  
+  // ── Profile / Results Modal ───────────────────────────────────────
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
+  // ── "Please Register" gate modal for guests clicking Start Quiz ───
+  const [showGuestGate, setShowGuestGate] = useState(false);
+  const [guestGateQuiz, setGuestGateQuiz] = useState<IQuizSummary | null>(null);
+
+  // ── Student session state ─────────────────────────────────────────
+  const [cachedProfile, setCachedProfile] = useState<IStudentProfile | null>(null);
   const [studentName, setStudentName] = useState('');
   const [className, setClassName] = useState('');
-  const [section, setSection] = useState('A');
-  const [studentId, setStudentId] = useState('');
   const [schoolName, setSchoolName] = useState('');
-  const [selectedSubjectName, setSelectedSubjectName] = useState('');
+  const [studentId, setStudentId] = useState('');
 
-  // Dropdown lists
-  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
-  const [classes, setClasses] = useState<IClassLevel[]>([]);
-
-  // Quizzes & Flow state
+  // ── Quiz state ────────────────────────────────────────────────────
   const [quizzes, setQuizzes] = useState<IQuizSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [phase, setPhase] = useState<
-    'quizzes_showcase' | 'registration' | 'taking_quiz' | 'result'
-  >('quizzes_showcase');
-  const [verifiedStudent, setVerifiedStudent] = useState<any | null>(null);
+  const [phase, setPhase] = useState<'quizzes_showcase' | 'instructions' | 'taking_quiz' | 'result'>('quizzes_showcase');
   const [selectedQuiz, setSelectedQuiz] = useState<IQuizSummary | null>(null);
 
-  // Examination state
+  // ── Examination state ─────────────────────────────────────────────
   const [questions, setQuestions] = useState<IQuestionItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [answers, setAnswers] = useState<Record<string, 'A' | 'B' | 'C' | 'D'>>({});
@@ -87,12 +132,25 @@ export default function StudentPortalPage() {
   const [submissionResult, setSubmissionResult] = useState<ISubmissionResult | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
 
-  // Per-question timer state
-  const [timePerQuestion, setTimePerQuestion] = useState<number>(30);
-  const [timeLeft, setTimeLeft] = useState<number>(30);
+  // ── Theme & Examination Visuals ───────────────────────────────────
+  const [theme, setTheme] = useState<IThemeSettings>(DEFAULT_THEME_SETTINGS);
+  const [themeLoaded, setThemeLoaded] = useState<boolean>(false);
+
+  useEffect(() => {
+    apiGetTheme().then((t) => {
+      if (t) setTheme(t);
+      setThemeLoaded(true);
+    }).catch(() => {
+      setThemeLoaded(true);
+    });
+  }, []);
+
+
+  // ── Per-question timer ────────────────────────────────────────────
+  const [timePerQuestion, setTimePerQuestion] = useState<number>(40);
+  const [timeLeft, setTimeLeft] = useState<number>(40);
   const [timerActive, setTimerActive] = useState<boolean>(false);
 
-  // References
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -101,121 +159,147 @@ export default function StudentPortalPage() {
   const totalQuestionsRef = useRef(0);
   totalQuestionsRef.current = questions.length;
 
-  // Quiz selection strictly matched to student's selected class if selected,
-  // otherwise defaults to generic competition (never defaulting to Class 8 when no class selected)
-  const selectedClassNum = className ? className.replace(/\D/g, '') : '';
-  const currentSubjectQuiz =
-    selectedQuiz ||
-    (selectedClassNum
-      ? quizzes.find((q) => {
-          if (q.targetClass && q.targetClass.replace(/\D/g, '') === selectedClassNum) return true;
-          if (
-            q.name &&
-            (q.name.includes(`कक्षा ${selectedClassNum}`) ||
-              q.name.toLowerCase().includes(`class ${selectedClassNum}`))
-          ) {
-            return true;
-          }
-          return false;
-        })
-      : null) ||
-    quizzes.find((q) => q.targetClass === 'All' || !q.name.includes('कक्षा')) ||
-    quizzes.find((q) => q.subject?.toLowerCase() === selectedSubjectName?.toLowerCase()) ||
-    quizzes[0];
-  const lang: Language = currentSubjectQuiz?.language === 'en' ? 'en' : 'hi';
-  const isHindiMode = lang === 'hi';
-  const t = TRANSLATIONS[lang];
+  const t = TRANSLATIONS.en;
 
-  // -------------------------------------------------------------
-  // Initial Load: Fetch Quizzes, Subjects & Active Classes
-  // -------------------------------------------------------------
-  const loadInitialData = useCallback(async () => {
+  // ── Load quizzes (Fast 0ms cache + background sync) ─────────────
+  const loadQuizzes = useCallback(async (studentIdentifier?: string) => {
     try {
-      setLoading(true);
-      setError(null);
-
-      const [quizRes, subRes, classRes] = await Promise.allSettled([
-        apiGetAvailableQuizzes(),
-        apiGetSubjects(),
-        apiGetClasses(),
-      ]);
-
-      const subSet = new Set<string>();
-
-      // Add subjects from subjects collection
-      if (subRes.status === 'fulfilled' && subRes.value?.success && subRes.value?.subjects) {
-        subRes.value.subjects.forEach((s: any) => {
-          if (s.name) subSet.add(s.name);
-        });
+      // 0ms instant display from local cache if present
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('eduline_cached_quizzes');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setQuizzes(parsed);
+              setLoading(false);
+            }
+          }
+        } catch {}
       }
 
-      // Add active classes from classes collection
-      if (classRes.status === 'fulfilled' && classRes.value?.success && Array.isArray(classRes.value?.classes)) {
-        setClasses(classRes.value.classes);
+      const res = await apiGetAvailableQuizzes(studentIdentifier);
+      if (res?.success && Array.isArray(res.quizzes)) {
+        setQuizzes(res.quizzes);
+        try {
+          localStorage.setItem('eduline_cached_quizzes', JSON.stringify(res.quizzes));
+        } catch {}
       }
-
-      // Add quizzes & subjects from quizzes
-      if (quizRes.status === 'fulfilled' && quizRes.value?.success) {
-        const rawQuizzes: IQuizSummary[] =
-          quizRes.value?.quizzes || quizRes.value?.data || [];
-        const fetchedQuizzes = rawQuizzes.map((q) => ({
-          ...q,
-          name: (q.name || '')
-            .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-            .replace(/क्विज़/g, 'प्रतियोगिता'),
-          instructions: (q.instructions || '')
-            .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-            .replace(/क्विज़/g, 'प्रतियोगिता'),
-        }));
-        if (fetchedQuizzes.length > 0) {
-          setQuizzes(fetchedQuizzes);
-          fetchedQuizzes.forEach((q: any) => {
-            if (q.subject) subSet.add(q.subject);
-          });
-        }
-      } else if (quizRes.status === 'rejected') {
-        console.warn('Backend connection notice:', quizRes.reason);
-      }
-
-      // Standard defaults
-      const defaults = ['Hindi', 'English', 'General Knowledge'];
-      defaults.forEach((d) => subSet.add(d));
-
-      const subs = Array.from(subSet);
-      setAvailableSubjects(subs);
-      setSelectedSubjectName((prev) => (prev && subs.includes(prev) ? prev : subs[0] || 'Hindi'));
     } catch (err: any) {
-      console.error('Initial load error:', err);
+      console.warn('Failed to load quizzes:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadInitialData();
+  // ── Initial auth & quiz load (Fast-path + Parallelized) ────────
+  const loadInitialData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    // Auto-refresh when user switches back to this browser tab so changes in admin schedule reflect immediately
-    const handleFocus = () => {
-      if (phaseRef.current === 'quizzes_showcase') {
-        loadInitialData();
+      // Fast-path: immediately hydrate from cached profile to eliminate UI delay
+      const cached = getCachedStudent();
+      let activeIdentifier: string | undefined = undefined;
+
+      if (cached) {
+        const rawClass = cached.class || cached.className || '';
+        const normalizedClass = rawClass.startsWith('Class ') ? rawClass : rawClass ? `Class ${rawClass}` : '';
+        const profile: IStudentProfile = {
+          _id: cached._id,
+          email: cached.email,
+          firstName: cached.firstName,
+          lastName: cached.lastName,
+          fullName: `${cached.firstName || ''} ${cached.lastName || ''}`.trim(),
+          mobileNumber: cached.mobileNumber,
+          schoolName: cached.schoolName,
+          className: normalizedClass,
+          class: normalizedClass,
+          dob: cached.dateOfBirth,
+          dateOfBirth: cached.dateOfBirth,
+          gender: cached.gender,
+          state: cached.state,
+          address: cached.address,
+          pinCode: cached.pinCode,
+          participatedEarlier: cached.previousQuizParticipation ? 'Yes' : 'No',
+          previousQuizParticipation: cached.previousQuizParticipation,
+          studentIdentifier: cached.studentIdentifier,
+          isVerifiedEmail: true,
+        };
+        setCachedProfile(profile);
+        setStudentName(profile.fullName);
+        setClassName(profile.className);
+        setSchoolName(profile.schoolName);
+        if (profile.studentIdentifier) {
+          setStudentId(profile.studentIdentifier);
+          activeIdentifier = profile.studentIdentifier;
+        }
       }
-    };
-    window.addEventListener('focus', handleFocus);
-    const interval = setInterval(() => {
-      if (phaseRef.current === 'quizzes_showcase') {
-        loadInitialData();
-      }
-    }, 12000);
 
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      clearInterval(interval);
-    };
-  }, [loadInitialData]);
+      // Parallelize background auth verification & quiz loading
+      const quizPromise = loadQuizzes(activeIdentifier);
+      const authPromise = apiGetMe()
+        .then((meRes) => {
+          if (meRes?.success && meRes.student) {
+            const s = meRes.student;
+            const rawClass = s.class || s.className || '';
+            const normalizedClass = rawClass.startsWith('Class ') ? rawClass : rawClass ? `Class ${rawClass}` : '';
+            const updatedProfile: IStudentProfile = {
+              _id: s._id,
+              email: s.email,
+              firstName: s.firstName,
+              lastName: s.lastName,
+              fullName: `${s.firstName || ''} ${s.lastName || ''}`.trim(),
+              mobileNumber: s.mobileNumber,
+              schoolName: s.schoolName,
+              className: normalizedClass,
+              class: normalizedClass,
+              dob: s.dateOfBirth,
+              dateOfBirth: s.dateOfBirth,
+              gender: s.gender,
+              state: s.state,
+              address: s.address,
+              pinCode: s.pinCode,
+              participatedEarlier: s.previousQuizParticipation ? 'Yes' : 'No',
+              previousQuizParticipation: s.previousQuizParticipation,
+              studentIdentifier: s.studentIdentifier,
+              isVerifiedEmail: true,
+            };
+            setCachedProfile(updatedProfile);
+            setStudentName(updatedProfile.fullName);
+            setClassName(updatedProfile.className);
+            setSchoolName(updatedProfile.schoolName);
+            if (updatedProfile.studentIdentifier) setStudentId(updatedProfile.studentIdentifier);
+          }
+        })
+        .catch(() => {});
 
-  // -------------------------------------------------------------
-  // Handle Next Question Navigation
-  // -------------------------------------------------------------
+      await Promise.all([quizPromise, authPromise]);
+    } catch (err: any) {
+      console.error('Initial portal load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadQuizzes]);
+
+  useEffect(() => { loadInitialData(); }, [loadInitialData]);
+
+  // ── Logout ────────────────────────────────────────────────────────
+  const handleLogout = () => {
+    clearStudentToken();
+    setCachedProfile(null);
+    setStudentName('');
+    setClassName('');
+    setSchoolName('');
+    setStudentId('');
+    setSelectedQuiz(null);
+    setPhase('quizzes_showcase');
+    loadQuizzes();
+    // Redirect to sign-in view
+    setAuthModal('signin');
+  };
+
+  // ── Quiz timer ────────────────────────────────────────────────────
   const handleNextQuestion = useCallback(() => {
     if (currentIndexRef.current < totalQuestionsRef.current - 1) {
       setCurrentIndex((prev) => prev + 1);
@@ -225,17 +309,12 @@ export default function StudentPortalPage() {
     }
   }, [timePerQuestion]);
 
-  // -------------------------------------------------------------
-  // Timer Countdown Effect
-  // -------------------------------------------------------------
   useEffect(() => {
     if (phase === 'taking_quiz' && timerActive) {
       if (timerRef.current) clearInterval(timerRef.current);
-
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            // Auto advance when time runs out
             if (currentIndexRef.current < totalQuestionsRef.current - 1) {
               handleNextQuestion();
               return timePerQuestion;
@@ -248,220 +327,90 @@ export default function StudentPortalPage() {
           return prev - 1;
         });
       }, 1000);
-
-      return () => {
-        if (timerRef.current) clearInterval(timerRef.current);
-      };
+      return () => { if (timerRef.current) clearInterval(timerRef.current); };
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
     }
   }, [phase, timerActive, timePerQuestion, handleNextQuestion]);
 
-  // -------------------------------------------------------------
-  // Student Form Registration & Verification
-  // -------------------------------------------------------------
-  const handleRegisterStudent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!studentName.trim()) {
-      setError(lang === 'hi' ? 'कृपया छात्र का नाम दर्ज करें' : 'Please enter student name');
-      return;
+  // ── Registration / Edit success callback ─────────────────────────
+  const handleRegistrationSuccess = async (profile: IStudentProfile) => {
+    const freshProfile = { ...profile };
+    setCachedProfile(freshProfile);
+    setStudentName(freshProfile.fullName);
+    setClassName(freshProfile.className);
+    setSchoolName(freshProfile.schoolName);
+    if (freshProfile.studentIdentifier) setStudentId(freshProfile.studentIdentifier);
+    setCachedStudent(freshProfile);
+    setAuthModal(null);
+    setShowGuestGate(false);
+
+    // Re-load quizzes filtered to this student's class
+    await loadQuizzes(profile.studentIdentifier);
+
+    if (selectedQuiz) {
+      setPhase('instructions');
+    } else {
+      setPhase('quizzes_showcase');
     }
-    if (!className) {
-      setError(lang === 'hi' ? 'कृपया कक्षा चुनें' : 'Please select a class');
-      return;
-    }
-    if (!schoolName.trim()) {
-      setError(lang === 'hi' ? 'कृपया विद्यालय का नाम दर्ज करें' : 'Please enter school name');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Use persistent stable device student ID so attempts are reliably bound to this browser/device
-      const effectiveStudentId = studentId.trim() || getDeviceStudentId();
-      if (!studentId.trim()) {
-        setStudentId(effectiveStudentId);
-      }
-
-      // 1. Ensure quizzes are available: if list is empty, try an immediate fetch
-      let currentQuizzes = [...quizzes];
-      if (currentQuizzes.length === 0) {
-        try {
-          const freshRes = await apiGetAvailableQuizzes();
-          if (freshRes?.success && Array.isArray(freshRes.quizzes) && freshRes.quizzes.length > 0) {
-            currentQuizzes = freshRes.quizzes.map((q: any) => ({
-              ...q,
-              name: (q.name || '')
-                .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-                .replace(/क्विज़/g, 'प्रतियोगिता'),
-              instructions: (q.instructions || '')
-                .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-                .replace(/क्विज़/g, 'प्रतियोगिता'),
-            }));
-            setQuizzes(currentQuizzes);
-          }
-        } catch (e) {
-          console.warn('Direct quiz fetch retry on submit failed:', e);
-        }
-      }
-
-      // Extract student's selected class number, e.g. "Class 5" -> "5"
-      const selectedClassNum = className ? className.replace(/\D/g, '') : '';
-
-      // 1. Primary: Check if admin assigned a specific quiz to this class
-      const matchedClass = classes.find(
-        (c) =>
-          c.name?.toLowerCase() === className?.toLowerCase() ||
-          c.displayHindi?.toLowerCase() === className?.toLowerCase() ||
-          (selectedClassNum && c.name?.replace(/\D/g, '') === selectedClassNum)
-      );
-
-      let targetQuiz: IQuizSummary | null = null;
-
-      if (matchedClass?.assignedQuizId) {
-        const assignedId =
-          typeof matchedClass.assignedQuizId === 'object' && matchedClass.assignedQuizId?._id
-            ? matchedClass.assignedQuizId._id
-            : typeof matchedClass.assignedQuizId === 'string'
-            ? matchedClass.assignedQuizId
-            : null;
-
-        if (assignedId) {
-          targetQuiz =
-            currentQuizzes.find((q) => q._id === assignedId) ||
-            (typeof matchedClass.assignedQuizId === 'object'
-              ? (matchedClass.assignedQuizId as IQuizSummary)
-              : null);
-        }
-      }
-
-      // 2. Secondary: If no direct admin quiz assignment, match by targetClass number or quiz name
-      if (!targetQuiz) {
-        targetQuiz =
-          currentQuizzes.find((q) => {
-            if (!selectedClassNum) return false;
-            // Direct targetClass match (e.g. 'Class 5' or '5')
-            if (q.targetClass) {
-              const qClassNum = q.targetClass.replace(/\D/g, '');
-              if (qClassNum && qClassNum === selectedClassNum) return true;
-            }
-            // Name contains class (e.g. "कक्षा 5" or "Class 5")
-            if (
-              q.name &&
-              (q.name.includes(`कक्षा ${selectedClassNum}`) ||
-                q.name.toLowerCase().includes(`class ${selectedClassNum}`))
-            ) {
-              return true;
-            }
-            return false;
-          }) ||
-          // Fallback: match by subject
-          currentQuizzes.find((q) => {
-            if (!q.subject || !selectedSubjectName) return false;
-            const s1 = q.subject.trim().toLowerCase();
-            const s2 = selectedSubjectName.trim().toLowerCase();
-            if (s1 === s2) return true;
-            if ((s1 === 'hindi' || s1 === 'हिन्दी' || s1 === 'हिंदी') && (s2 === 'hindi' || s2 === 'हिन्दी' || s2 === 'हिंदी')) return true;
-            if ((s1 === 'english' || s1 === 'अंग्रेजी') && (s2 === 'english' || s2 === 'अंग्रेजी')) return true;
-            return false;
-          }) ||
-          currentQuizzes.find((q) => q.isPlayable) ||
-          currentQuizzes[0];
-      }
-
-      // Safe Fallback for deployed instances: If backend query was temporarily delayed
-      // use the pre-configured Hindi Diwas Quiz ID from DB so student is never stuck
-      if (!targetQuiz) {
-        targetQuiz = {
-          _id: '6aa135e7c6fef42f692e825f',
-          name: 'हिंदी दिवस प्रतियोगिता',
-          subject: 'Hindi',
-          numberOfQuestions: 10,
-          passingPercentage: 50,
-          timePerQuestion: 30,
-          isPlayable: true,
-          status: 'Published',
-          language: 'hi',
-        } as IQuizSummary;
-      }
-
-      // Check Cookies & LocalStorage: Has this user already attempted this specific quiz?
-      if (hasAttemptedQuiz(targetQuiz._id)) {
-        const saved = getSavedAttempt(targetQuiz._id);
-        setAttemptedQuizData({
-          quizName: targetQuiz.name,
-          savedAttempt: saved,
-        });
-        setShowAlreadyAttemptedModal(true);
-        setLoading(false);
-        return;
-      }
-
-      const res = await apiVerifyStudent(
-        targetQuiz._id,
-        effectiveStudentId,
-        studentName.trim(),
-        {
-          className,
-          section: section || '',
-          schoolName: schoolName.trim(),
-        }
-      );
-
-      if (res.alreadyAttempted || res.code === 'ALREADY_ATTEMPTED') {
-        recordQuizAttempt(targetQuiz._id, {
-          studentName: studentName.trim(),
-          studentIdentifier: effectiveStudentId,
-        });
-        setAttemptedQuizData({
-          quizName: targetQuiz.name,
-          savedAttempt: getSavedAttempt(targetQuiz._id),
-        });
-        setShowAlreadyAttemptedModal(true);
-        setLoading(false);
-        return;
-      }
-
-      const verified = res.data || res.student;
-      if (res.success && (res.canAttempt || verified)) {
-        setVerifiedStudent(verified || { studentIdentifier: studentId.trim(), name: studentName.trim() });
-        const finalQuizToStart = res.quiz || (res.resolvedQuizId || res.effectiveQuizId
-          ? { ...targetQuiz, _id: res.resolvedQuizId || res.effectiveQuizId }
-          : targetQuiz);
-        await handleStartQuiz(finalQuizToStart);
-      } else {
-        setError(res.message || (lang === 'hi' ? 'सत्यापन विफल रहा' : 'Verification failed'));
-      }
-    } catch (err: any) {
-      setError(err.message || 'Verification failed. Please check details.');
-    } finally {
-      setLoading(false);
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // -------------------------------------------------------------
-  // Start Quiz
-  // -------------------------------------------------------------
+  // ── Filter quizzes by registered student class ────────────────────
+  const filteredQuizzes: IQuizSummary[] = React.useMemo(() => {
+    if (!cachedProfile) return quizzes; // guest sees all quizzes
+    const studentClass = cachedProfile.className || `Class ${cachedProfile.class}`;
+    if (!studentClass) return quizzes;
+    return quizzes.filter(q => {
+      // Match by classes array or targetClass
+      if (q.classes && q.classes.length > 0) {
+        return q.classes.some(c => {
+          const normalized = c.startsWith('Class ') ? c : `Class ${c}`;
+          return normalized === studentClass;
+        });
+      }
+      if (q.targetClass) {
+        const normalized = q.targetClass.startsWith('Class ') ? q.targetClass : `Class ${q.targetClass}`;
+        return normalized === studentClass || q.targetClass === 'All';
+      }
+      return true;
+    });
+  }, [quizzes, cachedProfile]);
+
+  // ── Quiz card click ───────────────────────────────────────────────
+  const handleSelectQuizCard = (quiz: IQuizSummary) => {
+    setSelectedQuiz(quiz);
+
+    if (!cachedProfile) {
+      // Guest: show gate modal with quiz info (upcoming date if applicable)
+      setGuestGateQuiz(quiz);
+      setShowGuestGate(true);
+      return;
+    }
+
+    setPhase('instructions');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ── Start Quiz (called from instructions screen) ──────────────────
   const handleStartQuiz = async (quiz: IQuizSummary) => {
+    if (!cachedProfile) {
+      setGuestGateQuiz(quiz);
+      setShowGuestGate(true);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       setSelectedQuiz(quiz);
 
-      const rollOrId = studentId.trim() || verifiedStudent?.studentIdentifier || '01';
+      const rollOrId = studentId.trim() || cachedProfile.studentIdentifier || '01';
       const res = await apiStartQuiz(quiz._id, rollOrId);
 
       if (res.code === 'ALREADY_ATTEMPTED' || res.alreadyAttempted) {
-        recordQuizAttempt(quiz._id, {
-          studentName: studentName.trim(),
-          studentIdentifier: rollOrId,
-        });
-        setAttemptedQuizData({
-          quizName: quiz.name,
-          savedAttempt: getSavedAttempt(quiz._id),
-        });
+        recordQuizAttempt(quiz._id, { studentName: studentName.trim() || cachedProfile.fullName, studentIdentifier: rollOrId });
+        setAttemptedQuizData({ quizName: quiz.name, savedAttempt: getSavedAttempt(quiz._id) });
         setShowAlreadyAttemptedModal(true);
         return;
       }
@@ -471,56 +420,34 @@ export default function StudentPortalPage() {
         setQuestions(questionList);
         setCurrentIndex(0);
         setAnswers({});
-
-        // Configure timer
-        const timerSeconds =
-          res.timePerQuestion || res.data?.timePerQuestion || quiz.timePerQuestion || 30;
+        const timerSeconds = quiz.timePerQuestion || 40;
         setTimePerQuestion(timerSeconds);
         setTimeLeft(timerSeconds);
         setTimerActive(true);
-
         setPhase('taking_quiz');
       } else if (res.success && questionList.length === 0) {
-        setError(
-          lang === 'hi'
-            ? 'इस प्रतियोगिता में अभी कोई प्रश्न उपलब्ध नहीं हैं।'
-            : 'No questions are available for this quiz yet.'
-        );
+        setError('No questions are available for this quiz yet. Please check back later.');
       } else {
-        setError(res.message || (lang === 'hi' ? 'प्रतियोगिता शुरू करने में असमर्थ' : 'Could not start quiz.'));
+        setError(res.message || 'Could not start quiz.');
       }
     } catch (err: any) {
-      setError(err.message || 'Could not start quiz. Please try again.');
+      if (err.code === 'ALREADY_ATTEMPTED' || err.message?.includes('already submitted an attempt')) {
+        setAttemptedQuizData({ quizName: quiz.name, savedAttempt: getSavedAttempt(quiz._id) });
+        setShowAlreadyAttemptedModal(true);
+      } else {
+        setError(err.message || 'Could not start quiz. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // -------------------------------------------------------------
-  // Select Quiz from Showcase Cards -> Navigate to Registration Screen
-  // -------------------------------------------------------------
-  const handleSelectQuizCard = (quiz: IQuizSummary) => {
-    setSelectedQuiz(quiz);
-    // Student must select their own class from dropdown (no auto-preselect)
-    setClassName('');
-    // Transition to the student registration form screen ("fill krne wala screen")
-    setPhase('registration');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // -------------------------------------------------------------
-  // Option Selection
-  // -------------------------------------------------------------
+  // ── Answer selection ──────────────────────────────────────────────
   const handleSelectAnswer = (questionId: string, optionKey: 'A' | 'B' | 'C' | 'D') => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: optionKey,
-    }));
+    setAnswers((prev) => ({ ...prev, [questionId]: optionKey }));
   };
 
-  // -------------------------------------------------------------
-  // Final Submission with 2-second Certificate Creation Screen
-  // -------------------------------------------------------------
+  // ── Final submission ──────────────────────────────────────────────
   const handleConfirmSubmit = async () => {
     if (!selectedQuiz) return;
     try {
@@ -529,25 +456,19 @@ export default function StudentPortalPage() {
       setIsCreatingCertificate(true);
       setTimerActive(false);
 
-      const rollOrId = studentId.trim() || verifiedStudent?.studentIdentifier || '01';
-      
+      const rollOrId = studentId.trim() || cachedProfile?.studentIdentifier || '01';
       const submitPromise = apiSubmitAttempt(selectedQuiz._id, {
         studentIdentifier: rollOrId,
-        name: studentName.trim() || verifiedStudent?.name || 'Student',
-        className: className || verifiedStudent?.className,
-        section: section || verifiedStudent?.section,
-        schoolName: schoolName.trim() || verifiedStudent?.schoolName,
+        name: studentName.trim() || cachedProfile?.fullName || 'Student',
+        className: className || cachedProfile?.className,
+        schoolName: schoolName.trim() || cachedProfile?.schoolName,
         answers,
       });
-
-      // Enforce at least 2 full seconds for the certificate creation loading screen
       const delayPromise = new Promise((resolve) => setTimeout(resolve, 2000));
-
       const [res] = await Promise.all([submitPromise, delayPromise]);
 
       const submissionData = res.data || res.result;
       if (res.success && submissionData) {
-        // Record in Cookies & LocalStorage that this specific quiz was completed
         recordQuizAttempt(selectedQuiz._id, {
           attemptId: submissionData.attemptId,
           studentName: submissionData.studentName || studentName.trim(),
@@ -562,44 +483,40 @@ export default function StudentPortalPage() {
           schoolName: submissionData.schoolName || schoolName,
           review: submissionData.review,
         });
-
         setSubmissionResult(submissionData);
         setPhase('result');
       } else {
-        setError(res.message || 'Failed to evaluate quiz submission');
+        setError(res.message || 'Failed to evaluate quiz submission.');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to evaluate quiz submission');
+      setError(err.message || 'Failed to evaluate quiz submission.');
     } finally {
       setIsCreatingCertificate(false);
       setSubmitting(false);
     }
   };
 
-  // -------------------------------------------------------------
-  // PDF / Certificate Download
-  // -------------------------------------------------------------
+  // ── PDF download ──────────────────────────────────────────────────
   const handleDownloadPdf = async (type: 'pdf' | 'certificate') => {
-    if (!submissionResult?.attemptId) return;
-    const rollOrId =
-      submissionResult.studentIdentifier ||
-      studentId.trim() ||
-      verifiedStudent?.studentIdentifier ||
-      '01';
-
+    const attemptId = submissionResult?.attemptId || (submissionResult as any)?._id || submissionResult?.certificateId;
+    if (!attemptId) {
+      alert('Result or Attempt ID not found. Please try again.');
+      return;
+    }
+    const rollOrId = submissionResult?.studentIdentifier || studentId.trim() || cachedProfile?.studentIdentifier || '01';
     try {
       setDownloadingPdf(type);
-      const blob = await apiDownloadPdf(submissionResult.attemptId, type, rollOrId);
+      const blob = await apiDownloadPdf(String(attemptId), type, rollOrId);
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `${type === 'certificate' ? 'Certificate' : 'Result'}_${submissionResult.studentName || 'Student'}.pdf`;
+      link.download = `${type === 'certificate' ? 'Certificate' : 'Result'}_${(submissionResult?.studentName || 'Student').replace(/\s+/g, '_')}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 8000);
     } catch (err: any) {
-      alert(`Could not download: ${err.message}`);
+      alert(`Could not download ${type}: ${err.message || 'Unknown error'}`);
     } finally {
       setDownloadingPdf(null);
     }
@@ -609,122 +526,149 @@ export default function StudentPortalPage() {
   const totalQuestions = questions.length;
   const answeredCount = Object.keys(answers).length;
 
+  // ── RENDER ────────────────────────────────────────────────────────
   return (
-    <div
-      className="min-h-screen text-slate-800 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-900 bg-cover bg-center bg-fixed bg-no-repeat relative overflow-x-hidden"
-      style={{
-        backgroundImage: "url('/img/background.jpg')",
-      }}
-    >
-      {/* 3-Second Eduline Brand Loading Splash Screen at portal startup */}
-      <PortalLoadingScreen lang={lang} />
+    <div className="min-h-screen text-slate-800 flex flex-col font-sans selection:bg-[#2d7995] selection:text-white relative overflow-x-hidden">
+      {/* ── Dynamic Body Background Layer (Full Frontend) ── */}
+      <div
+        className="portal-bg-layer"
+        style={{
+          backgroundColor: theme?.bgColor || '#FAF9F5',
+          backgroundImage:
+            theme?.enableBgImage !== false && theme?.bgImage
+              ? `url(${resolveMediaUrl(theme.bgImage)})`
+              : 'none',
+        }}
+        aria-hidden="true"
+      />
 
-      {/* Floating Hindi Letters with interactive cursor repulsion */}
-      <FloatingHindiLetters />
-
-      {/* Subtle overlay */}
-      <div className="absolute inset-0 bg-white/10 pointer-events-none" />
+      {/* ── Fixed Illustration on Body Background (Positioned from Backend Theme) ── */}
+      {themeLoaded && theme?.showTopRightImage && theme?.topRightImage && (
+        <div
+          className="fixed pointer-events-none select-none z-0 transition-all duration-300 will-change-transform"
+          style={{
+            top: `${theme?.topRightTop ?? 80}px`,
+            right: `${theme?.topRightRight ?? 40}px`,
+            width: `${theme?.topRightImageWidth ?? 160}px`,
+            maxWidth: '35vw',
+            transform: 'translateZ(0)',
+          }}
+          aria-hidden="true"
+        >
+          <img
+            src={resolveMediaUrl(theme.topRightImage)}
+            alt=""
+            loading="eager"
+            decoding="async"
+            className="w-full h-auto object-contain drop-shadow-md"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        </div>
+      )}
 
       <div className="relative z-10 flex flex-col min-h-screen">
-        {/* TOP HEADER */}
+        {/* ── HEADER ──────────────────────────────────────────── */}
         <Header
-          t={t}
+          t={{ navHome: 'Home', navInstructions: 'Instructions', navContact: 'Contact Us' }}
           isQuizActive={phase === 'taking_quiz'}
+          registeredStudentName={cachedProfile?.fullName || cachedProfile?.firstName}
+          registeredStudentClass={cachedProfile?.class || cachedProfile?.className?.replace('Class ', '')}
           onOpenInstructions={() => setShowInstructionsModal(true)}
           onOpenContact={() => setShowContactModal(true)}
           onNavigateHome={() => setPhase('quizzes_showcase')}
+          onOpenRegister={() => setAuthModal('signup')}
+          onOpenSignIn={() => setAuthModal('signin')}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onLogout={handleLogout}
         />
 
-        {/* MAIN BODY CONTENT */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-2.5 sm:px-6 lg:px-8 py-2 sm:py-6 lg:py-8 flex flex-col justify-start sm:justify-center">
-          {/* Global Alert / Notification */}
-          {error && (
-            <div className="max-w-2xl mx-auto mb-6 p-4 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-200 text-xs font-semibold flex items-center justify-between backdrop-blur-md shadow-lg animate-fadeIn">
-              <span>{error}</span>
-              <button
-                onClick={() => setError(null)}
-                className="text-rose-400 hover:text-white font-bold ml-4"
-              >
-                ✕
-              </button>
+        {/* ── MAIN ────────────────────────────────────────────── */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 flex flex-col justify-start">
+          {/* Global error banner — only show non-auth, user-relevant errors */}
+          {error && !error.toLowerCase().includes('authentication') && !error.toLowerCase().includes('unauthorized') && !error.toLowerCase().includes('register or verify') && (
+            <div className="max-w-2xl mx-auto mb-6 p-4 rounded-2xl bg-rose-900/90 border border-rose-400 text-rose-100 text-xs font-semibold flex items-center justify-between backdrop-blur-md shadow-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-300 shrink-0" />
+                <span>{error}</span>
+              </div>
+              <button onClick={() => setError(null)} className="text-rose-300 hover:text-white font-bold ml-4 cursor-pointer">✕</button>
             </div>
           )}
 
-          {/* VIEW 1: FIRST SCREEN SHOWN — COMPETITIONS SHOWCASE TABS & CARDS */}
+          {/* ── VIEW 1: HOME / QUIZZES ───────────────────────── */}
           {phase === 'quizzes_showcase' && (
-            <div className="max-w-6xl mx-auto w-full space-y-6 animate-fadeIn py-2 sm:py-6">
-              <QuizShowcaseSection
-                quizzes={quizzes}
-                selectedClassName={className}
-                lang={lang}
-                onSelectQuiz={handleSelectQuizCard}
-              />
-            </div>
-          )}
-
-          {/* VIEW 2: REGISTRATION FORM SCREEN ("fill krne wala screen") */}
-          {phase === 'registration' && (
-            <div className="max-w-7xl mx-auto w-full animate-fadeIn py-2 sm:py-4">
+            <div className="space-y-6 animate-fadeIn">
+              {/* Hero welcome banner */}
               <HeroSection
-                t={t}
-                lang={lang}
-                isHindiMode={isHindiMode}
-                studentName={studentName}
-                setStudentName={setStudentName}
-                className={className}
-                setClassName={setClassName}
-                classes={classes}
-                section={section}
-                setSection={setSection}
-                studentId={studentId}
-                setStudentId={setStudentId}
-                selectedSubjectName={selectedSubjectName}
-                setSelectedSubjectName={setSelectedSubjectName}
-                schoolName={schoolName}
-                setSchoolName={setSchoolName}
-                availableSubjects={availableSubjects}
-                currentSubjectQuiz={currentSubjectQuiz}
-                loading={loading}
-                onBack={() => setPhase('quizzes_showcase')}
-                onSubmit={handleRegisterStudent}
+                studentProfile={cachedProfile}
+                onOpenRegister={() => setAuthModal('signup')}
+                onRegistrationSuccess={handleRegistrationSuccess}
+                onScrollToQuizzes={() => {
+                  const el = document.getElementById('quiz-showcase-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
               />
+
+              {/* Quiz grid */}
+              {loading ? (
+                <div className="py-16 text-center text-sm font-semibold text-slate-500">Loading quizzes...</div>
+              ) : (
+                <QuizShowcaseSection
+                  quizzes={filteredQuizzes}
+                  selectedClassName={className}
+                  onSelectQuiz={handleSelectQuizCard}
+                />
+              )}
             </div>
           )}
 
-          {/* VIEW 3: ACTIVE MCQ EXAMINATION (MATCHES IMAGE 1) */}
-          {phase === 'taking_quiz' && currentQ && (
-            <McqExamination
-              t={t}
-              isHindiMode={isHindiMode}
-              currentQ={currentQ}
-              currentIndex={currentIndex}
-              totalQuestions={totalQuestions}
-              selectedQuiz={selectedQuiz}
-              timeLeft={timeLeft}
-              answeredCount={answeredCount}
-              answers={answers}
-              onSelectAnswer={handleSelectAnswer}
-              onNextQuestion={handleNextQuestion}
-              onRequestSubmit={() => setShowConfirmModal(true)}
+          {/* ── VIEW 2: INSTRUCTIONS ────────────────────────── */}
+          {phase === 'instructions' && (
+            <QuizInstructionsView
+              quiz={selectedQuiz}
+              studentProfile={cachedProfile}
+              onStartQuiz={() => selectedQuiz && handleStartQuiz(selectedQuiz)}
+              onBack={() => setPhase('quizzes_showcase')}
+              onEditProfile={() => setAuthModal('signup')}
             />
           )}
 
-          {/* VIEW 4: CERTIFICATE & REVIEW (MATCHES IMAGE 2) */}
+          {/* ── VIEW 3: ACTIVE EXAMINATION ──────────────────── */}
+          {phase === 'taking_quiz' && currentQ && (
+            <div className="relative w-full">
+
+              <McqExamination
+                t={selectedQuiz?.language === 'hi' || /हिंदी|गांधी/i.test(selectedQuiz?.name || '') ? TRANSLATIONS.hi : t}
+                isHindiMode={selectedQuiz?.language === 'hi' || /हिंदी|गांधी/i.test(selectedQuiz?.name || '')}
+                currentQ={currentQ}
+                currentIndex={currentIndex}
+                totalQuestions={totalQuestions}
+                selectedQuiz={selectedQuiz}
+                timeLeft={timeLeft}
+                answeredCount={answeredCount}
+                answers={answers}
+                onSelectAnswer={handleSelectAnswer}
+                onNextQuestion={handleNextQuestion}
+                onRequestSubmit={() => setShowConfirmModal(true)}
+                theme={theme}
+              />
+            </div>
+          )}
+
+          {/* ── VIEW 4: RESULT & CERTIFICATE ────────────────── */}
           {phase === 'result' && submissionResult && (
-            <div className="max-w-4xl mx-auto w-full space-y-8 animate-fadeIn pb-12">
-              {/* 1. The Certificate */}
+            <div className="max-w-4xl mx-auto w-full space-y-8 pb-12">
               <CertificateView
                 submissionResult={submissionResult}
-                lang={lang}
+                lang="en"
                 classNameVal={className}
-                sectionVal={section}
                 schoolNameVal={schoolName}
                 downloadingPdf={downloadingPdf}
                 onDownloadPdf={handleDownloadPdf}
                 onBackToDashboard={() => setPhase('quizzes_showcase')}
               />
-
-              {/* 2. Question-by-Question Review (कौन-से सही, कौन-से गलत) */}
               <QuestionReview
                 review={
                   submissionResult.review && submissionResult.review.length > 0
@@ -732,34 +676,23 @@ export default function StudentPortalPage() {
                     : questions.map((q) => {
                         const studentChoice = answers[q._id] || 'Unanswered';
                         const correctAnswer = (q as any).correctAnswer || 'A';
-                        return {
-                          questionId: q._id,
-                          question: q.question,
-                          options: q.options,
-                          studentChoice,
-                          correctAnswer,
-                          isCorrect: studentChoice === correctAnswer,
-                        };
+                        return { questionId: q._id, question: q.question, options: q.options, studentChoice, correctAnswer, isCorrect: studentChoice === correctAnswer };
                       })
                 }
-                lang={lang}
+                lang="en"
               />
             </div>
           )}
         </main>
 
-        {/* 2-Second Certificate Creation Loading Screen */}
-        <CertificateLoadingModal
-          isOpen={isCreatingCertificate}
-          lang={lang}
-          studentName={studentName || verifiedStudent?.name}
-        />
+        {/* ── CERTIFICATE LOADING OVERLAY ──────────────────── */}
+        <CertificateLoadingModal isOpen={isCreatingCertificate} lang="en" studentName={studentName || cachedProfile?.fullName} />
 
-        {/* Modal: Quiz Already Attempted Notice */}
+        {/* ── ALREADY ATTEMPTED MODAL ──────────────────────── */}
         <AlreadyAttemptedModal
           isOpen={showAlreadyAttemptedModal}
           onClose={() => setShowAlreadyAttemptedModal(false)}
-          lang={lang}
+          lang="en"
           quizName={attemptedQuizData?.quizName}
           classNameVal={className}
           savedAttempt={attemptedQuizData?.savedAttempt}
@@ -768,22 +701,7 @@ export default function StudentPortalPage() {
               ? () => {
                   const saved = attemptedQuizData.savedAttempt;
                   if (saved) {
-                    setSubmissionResult({
-                      attemptId: saved.attemptId,
-                      studentName: saved.studentName,
-                      studentIdentifier: saved.studentIdentifier,
-                      className: saved.className || className || '',
-                      section: section || 'A',
-                      schoolName: saved.schoolName || schoolName || '',
-                      quizName: attemptedQuizData.quizName || 'हिंदी दिवस प्रतियोगिता',
-                      score: saved.score ?? 0,
-                      totalQuestions: saved.totalQuestions ?? 10,
-                      percentage: saved.percentage ?? 0,
-                      result: saved.result || 'Pass',
-                      submittedAt: saved.submittedAt,
-                      certificateId: saved.certificateId,
-                      review: saved.review || [],
-                    });
+                    setSubmissionResult({ attemptId: saved.attemptId, studentName: saved.studentName, studentIdentifier: saved.studentIdentifier, className: saved.className || className || '', section: 'A', schoolName: saved.schoolName || schoolName || '', quizName: attemptedQuizData.quizName || 'Academic Assessment', score: saved.score ?? 0, totalQuestions: saved.totalQuestions ?? 10, percentage: saved.percentage ?? 0, result: (saved.result as any) || 'Pass', submittedAt: saved.submittedAt, certificateId: saved.certificateId, review: saved.review || [] });
                     setShowAlreadyAttemptedModal(false);
                     setPhase('result');
                   }
@@ -792,31 +710,99 @@ export default function StudentPortalPage() {
           }
         />
 
-        {/* MODALS */}
-        <InstructionsModal
-          isOpen={showInstructionsModal}
-          onClose={() => setShowInstructionsModal(false)}
-          quiz={currentSubjectQuiz}
-          classNameVal={className}
-          lang={lang}
+        {/* ── INSTRUCTIONS / CONTACT / CONFIRM MODALS ──────── */}
+        <InstructionsModal isOpen={showInstructionsModal} onClose={() => setShowInstructionsModal(false)} quiz={selectedQuiz || (quizzes.length > 0 ? quizzes[0] : null)} classNameVal={className} lang="en" />
+        <ContactModal isOpen={showContactModal} onClose={() => setShowContactModal(false)} quiz={selectedQuiz || (quizzes.length > 0 ? quizzes[0] : null)} lang="en" />
+        <ConfirmSubmitModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={handleConfirmSubmit} answeredCount={answeredCount} totalQuestions={totalQuestions} submitting={submitting} lang="en" />
+
+        {/* ── STUDENT REGISTRATION / SIGN-IN MODAL ─────────── */}
+        <StudentRegistrationModal
+          isOpen={authModal !== null}
+          onClose={() => setAuthModal(null)}
+          onSuccess={handleRegistrationSuccess}
+          initialClass={className}
+          initialSchool={schoolName}
+          initialMode={authModal === 'signin' ? 'signin' : authModal === 'edit' ? 'edit' : 'signup'}
         />
 
-        <ContactModal
-          isOpen={showContactModal}
-          onClose={() => setShowContactModal(false)}
-          quiz={currentSubjectQuiz}
-          lang={lang}
+        {/* ── STUDENT PROFILE & RESULTS MODAL ──────────────── */}
+        <StudentProfileModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          profile={cachedProfile}
+          onEditProfile={() => {
+            setShowProfileModal(false);
+            setAuthModal('edit');
+          }}
         />
 
-        <ConfirmSubmitModal
-          isOpen={showConfirmModal}
-          onClose={() => setShowConfirmModal(false)}
-          onConfirm={handleConfirmSubmit}
-          answeredCount={answeredCount}
-          totalQuestions={totalQuestions}
-          submitting={submitting}
-          lang={lang}
-        />
+        {/* ── GUEST GATE MODAL ────────────────────────────── */}
+        {showGuestGate && guestGateQuiz && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-[#2d7995] to-[#1f576c] px-6 py-4 flex items-center justify-between">
+                <h2 className="text-white font-black text-base">Registration Required</h2>
+                <button onClick={() => setShowGuestGate(false)} className="text-white/70 hover:text-white cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-4">
+                {/* Quiz info */}
+                <div className="bg-[#2d7995]/10 border border-[#2d7995]/25 rounded-xl p-4">
+                  <p className="text-xs text-[#2d7995] font-bold uppercase tracking-wide mb-1">
+                    {guestGateQuiz.scheduleStatus === 'Upcoming' ? 'Upcoming Quiz' : 'Quiz'}
+                  </p>
+                  <p className="font-black text-slate-900 text-sm">{guestGateQuiz.name}</p>
+                  {guestGateQuiz.scheduleStatus === 'Upcoming' && guestGateQuiz.startDate && (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-[#194c5f] font-semibold">
+                      <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+                      <span>Quiz starts on: {fmtDate(guestGateQuiz.startDate)}</span>
+                    </div>
+                  )}
+                  {guestGateQuiz.scheduleStatus === 'Upcoming' && guestGateQuiz.timing && (
+                    <p className="text-xs text-[#194c5f] mt-1 pl-5">⏰ Time: {guestGateQuiz.timing}</p>
+                  )}
+                </div>
+
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  {guestGateQuiz.scheduleStatus === 'Upcoming'
+                    ? 'This quiz is coming soon. Register now so you\'re ready to attempt it on the quiz date!'
+                    : 'You need to register or sign in to attempt this quiz and receive your certificate.'}
+                </p>
+
+                {/* Action buttons */}
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setShowGuestGate(false); setAuthModal('signin'); }}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white text-slate-700 font-bold text-sm transition cursor-pointer"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowGuestGate(false); setAuthModal('signup'); }}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#2d7995] to-[#1f576c] hover:from-[#266881] hover:to-[#1a4a5b] text-white font-bold text-sm transition shadow-md cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Register Free
+                  </button>
+                </div>
+
+                <p className="text-center text-[11px] text-slate-400">
+                  Registration is free. Takes less than 2 minutes.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── FOOTER ───────────────────────────────────────── */}
+        {phase !== 'taking_quiz' && <SocialPlatformsFooter />}
       </div>
     </div>
   );

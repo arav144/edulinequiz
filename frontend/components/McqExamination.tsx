@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Clock, ChevronRight, Send } from 'lucide-react';
-import { IQuestionItem, IQuizSummary, getOptionLabel } from './types';
+import { Clock, Send } from 'lucide-react';
+import { IQuestionItem, IQuizSummary } from './types';
+import { IThemeSettings } from '@/services/api';
 
 interface McqExaminationProps {
   t: any;
@@ -17,9 +18,10 @@ interface McqExaminationProps {
   onSelectAnswer: (questionId: string, key: 'A' | 'B' | 'C' | 'D') => void;
   onNextQuestion: () => void;
   onRequestSubmit: () => void;
+  theme?: IThemeSettings;
 }
 
-export const McqExamination: React.FC<McqExaminationProps> = ({
+const McqExaminationComponent: React.FC<McqExaminationProps> = ({
   t,
   isHindiMode,
   currentQ,
@@ -35,55 +37,78 @@ export const McqExamination: React.FC<McqExaminationProps> = ({
 }) => {
   return (
     <div
-      className="rounded-2xl sm:rounded-3xl p-3.5 sm:p-8 lg:p-10 max-w-4xl mx-auto w-full space-y-4 sm:space-y-6 text-slate-900 shadow-2xl border-2 border-amber-300/80 relative overflow-hidden bg-white bg-cover bg-center"
+      className="rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 md:p-8 max-w-xl sm:max-w-2xl mx-auto w-full text-slate-900 shadow-2xl border border-white/60 relative overflow-hidden select-none space-y-3.5 sm:space-y-5 will-change-transform transform-gpu"
       style={{
-        backgroundImage: "url('/img/Hindi 2.png')",
+        backgroundImage: "url('/img/polygon_bg.jpg')",
         backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundColor: '#FAF9F5',
       }}
     >
-      {/* Top Subtle Header: Timer & Progress Status */}
-      <div className="flex items-center justify-between border-b border-amber-300/60 pb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-black px-3.5 py-1.5 rounded-xl bg-amber-100 text-amber-950 border border-amber-400/80 shadow-xs">
-            {t.questionCounter} {currentIndex + 1} / {totalQuestions}
-          </span>
-        </div>
+      {/* ─── TOP HEADER: Clean, Single-Line Responsive Bar ─── */}
+      <div className="flex items-center justify-between border-b border-[#1e3a5f]/15 pb-2.5 sm:pb-3 gap-1.5 sm:gap-2">
+        {/* Question Counter */}
+        <span className="text-[11px] sm:text-xs font-mono font-bold px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-white/90 text-[#1e3a5f] border border-[#1e3a5f]/20 shadow-2xs backdrop-blur-xs whitespace-nowrap">
+          <span className="sm:hidden">Q. {currentIndex + 1}/{totalQuestions}</span>
+          <span className="hidden sm:inline">{t.questionCounter || 'Question'} {currentIndex + 1} / {totalQuestions}</span>
+        </span>
 
         {/* Live Countdown Pill */}
         <div
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-xl border transition-all font-mono font-black text-xs shadow-sm ${
+          className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border transition-all font-mono font-black text-[11px] sm:text-xs shadow-2xs backdrop-blur-xs whitespace-nowrap ${
             timeLeft <= 5
               ? 'bg-rose-500 text-white border-rose-600 animate-pulse'
               : timeLeft <= 10
               ? 'bg-amber-400 text-slate-950 border-amber-500'
-              : 'bg-white text-amber-950 border-amber-300'
+              : 'bg-white/90 text-[#1e3a5f] border-[#1e3a5f]/25'
           }`}
         >
-          <Clock className="w-4 h-4 flex-shrink-0" />
+          <Clock className="w-3.5 h-3.5 flex-shrink-0 text-[#1e3a5f]" />
           <span>00:{String(timeLeft).padStart(2, '0')}</span>
         </div>
 
-        <div className="text-right">
-          <span className="text-xs font-mono font-extrabold text-slate-700">
-            {answeredCount} / {totalQuestions} {t.answered}
-          </span>
-        </div>
+        {/* Answered Status */}
+        <span className="text-[11px] sm:text-xs font-mono font-semibold text-[#1e3a5f] bg-white/90 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-[#1e3a5f]/20 shadow-2xs backdrop-blur-xs whitespace-nowrap">
+          <span className="sm:hidden">{answeredCount}/{totalQuestions} done</span>
+          <span className="hidden sm:inline">{answeredCount} / {totalQuestions} {t.answered || 'Done'}</span>
+        </span>
       </div>
 
-      {/* QUESTION CARD (Using Circle-1.png: Golden Splash with Sketched Open Book) */}
-      <div className="flex flex-col items-center justify-center pt-2">
-        <div
-          className="relative w-72 h-72 sm:w-96 sm:h-96 flex flex-col items-center justify-center p-6 sm:p-10 text-center select-none bg-contain bg-center bg-no-repeat drop-shadow-xl transition-transform hover:scale-[1.01]"
-          style={{
-            backgroundImage: "url('/img/Circle-1.png')",
-          }}
-        >
-          {/* Text Container centered inside the golden circle area */}
-          <div className="flex flex-col items-center justify-center max-w-[210px] sm:max-w-[280px] -mt-10 sm:-mt-14 px-2">
-            <span className="text-2xl sm:text-4xl font-black text-slate-950 font-hindi mb-1 drop-shadow-xs">
+      {/* ─── QUESTION CARD (Compact, Proportional, Speech-Card Design) ─── */}
+      <div className="flex flex-col items-center justify-center pt-1 sm:pt-2">
+        <div className="relative w-full max-w-md sm:max-w-lg mx-auto">
+          {/* Card Box with 3D Offset Shadow & Dashed Border */}
+          <div
+            className="w-full bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-7 text-center relative border-[1.5px] sm:border-2 border-dashed border-[#1e3a5f]/80"
+            style={{
+              boxShadow: '-6px 6px 0px rgba(30, 58, 95, 0.35), 0 6px 16px -4px rgba(30, 58, 95, 0.12)',
+            }}
+          >
+            {/* Top-Right Stylized Question Mark "?" Icon */}
+            <div className="absolute -top-5 -right-2 sm:-top-7 sm:-right-3 select-none pointer-events-none filter drop-shadow-sm">
+              <svg
+                viewBox="0 0 60 75"
+                className="w-9 h-12 sm:w-11 sm:h-14"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M16 20C16 10 25 4 35 4C47 4 54 11 54 21C54 29 47 34 39 39C34 42 32 46 32 52"
+                  stroke="#1e3a5f"
+                  strokeWidth="9"
+                  strokeLinecap="round"
+                />
+                <circle cx="32" cy="65" r="5" fill="#1e3a5f" />
+              </svg>
+            </div>
+
+            {/* Question Index Number */}
+            <div className="text-xl sm:text-2xl font-black text-[#1e3a5f] font-sans tracking-tight mb-1 sm:mb-1.5">
               {currentIndex + 1}.
-            </span>
-            <h2 className="text-sm sm:text-lg lg:text-xl font-black text-slate-950 font-hindi leading-snug line-clamp-4">
+            </div>
+
+            {/* Question Text */}
+            <h2 className="text-sm sm:text-base md:text-lg font-bold text-[#1e3a5f] font-serif leading-relaxed px-1 sm:px-3">
               {currentQ.question}
             </h2>
           </div>
@@ -92,90 +117,103 @@ export const McqExamination: React.FC<McqExaminationProps> = ({
 
       {/* Question Media (if any) */}
       {currentQ.imageUrl && (
-        <div className="rounded-2xl overflow-hidden border border-amber-200 bg-white max-w-md mx-auto p-1 shadow-sm">
+        <div className="rounded-xl overflow-hidden border border-amber-200 bg-white max-w-sm mx-auto p-1 shadow-xs">
           <img
             src={currentQ.imageUrl}
             alt="Question reference"
-            className="w-full max-h-56 object-contain rounded-xl"
+            className="w-full max-h-44 object-contain rounded-lg"
           />
         </div>
       )}
       {currentQ.audioUrl && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3 max-w-md mx-auto shadow-sm">
-          <p className="text-[10px] uppercase font-bold text-amber-800 mb-1.5">🔊 Listen to question audio</p>
+        <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-2.5 max-w-sm mx-auto shadow-xs">
+          <p className="text-[10px] uppercase font-bold text-amber-800 mb-1">🔊 Listen to question audio</p>
           <audio controls className="w-full">
             <source src={currentQ.audioUrl} />
           </audio>
         </div>
       )}
 
-      {/* 4 OPTIONS GRID (Using Circle-2.png: Golden Splash Pebble) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 justify-center items-center my-4 max-w-3xl mx-auto w-full">
+      {/* ─── 4 OPTIONS (Clean Compact Capsule Pills with Dashed Outline) ─── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3.5 max-w-md sm:max-w-lg mx-auto w-full my-2 sm:my-3.5">
         {(['A', 'B', 'C', 'D'] as const).map((key) => {
           const optText = currentQ.options[key];
           const isSelected = answers[currentQ._id] === key;
-          const badgeLetter = getOptionLabel(key, isHindiMode);
 
           return (
             <button
               key={key}
               type="button"
               onClick={() => onSelectAnswer(currentQ._id, key)}
-              className={`group relative flex flex-col items-center justify-center p-3 sm:p-4 transition-all duration-200 select-none cursor-pointer text-center w-full aspect-square max-w-[160px] mx-auto bg-contain bg-center bg-no-repeat ${
+              className={`group relative flex items-center gap-2 sm:gap-2.5 py-1.5 sm:py-2 px-1.5 sm:px-2 pr-3 sm:pr-4 rounded-full border-[1.5px] border-dashed transition-all duration-150 select-none cursor-pointer text-left w-full min-h-[44px] sm:min-h-[48px] ${
                 isSelected
-                  ? 'drop-shadow-2xl ring-4 ring-amber-500 rounded-full font-bold brightness-105'
-                  : 'hover:brightness-105 hover:drop-shadow-lg opacity-90 hover:opacity-100'
+                  ? 'bg-amber-50/95 border-[#1e3a5f] ring-2 ring-[#1e3a5f]/30 shadow-md -translate-y-0.5'
+                  : 'bg-white/95 border-[#1e3a5f]/60 hover:border-[#1e3a5f] hover:bg-white hover:-translate-y-0.5 shadow-xs'
               }`}
-              style={{
-                backgroundImage: "url('/img/Circle-2.png')",
-              }}
             >
-              <span className="text-xs sm:text-sm font-black text-slate-900 mb-0.5">
-                ( {badgeLetter} )
-              </span>
-              <span className="text-xs sm:text-base font-extrabold text-slate-950 font-hindi leading-tight px-2 line-clamp-3">
+              {/* Left Solid Navy Circular Badge */}
+              <div
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm font-sans shrink-0 border border-white/90 transition-all shadow-2xs ${
+                  isSelected
+                    ? 'bg-[#1e3a5f] text-amber-300 ring-2 ring-amber-400'
+                    : 'bg-[#1e3a5f] text-white group-hover:scale-105'
+                }`}
+              >
+                {key.toLowerCase()}.
+              </div>
+
+              {/* Option Text */}
+              <span className="flex-1 text-xs sm:text-sm font-bold font-serif leading-snug text-[#1e3a5f] pl-1 text-left">
                 {optText}
               </span>
+
+              {/* Selection Indicator Checkmark */}
               {isSelected && (
-                <span className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-md ring-2 ring-white">
+                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center shrink-0 shadow-2xs text-[10px] sm:text-xs font-black ml-1">
                   ✓
-                </span>
+                </div>
               )}
             </button>
           );
         })}
       </div>
 
-      {/* Center Bottom Action Button (Using Shape-3.png / Styled Button) */}
-      <div className="pt-2 flex flex-col items-center justify-center gap-2.5">
+      {/* ─── NEXT / SUBMIT BUTTON ─── */}
+      <div className="pt-1 sm:pt-2 flex flex-col items-center justify-center gap-1.5">
         {currentIndex < totalQuestions - 1 ? (
           <button
             type="button"
             onClick={onNextQuestion}
-            className="relative px-12 sm:px-16 py-3.5 sm:py-4 text-slate-950 font-black text-sm sm:text-base shadow-lg shadow-amber-500/30 hover:brightness-110 active:brightness-95 transition-all duration-200 flex items-center gap-2 bg-contain bg-center bg-no-repeat cursor-pointer select-none"
+            className="px-10 sm:px-14 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-[#1e3a5f] hover:bg-[#162d4a] text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-md hover:shadow-lg active:translate-y-0.5 transition-all duration-150 cursor-pointer select-none"
             style={{
-              backgroundImage: "url('/img/Shape-3.png')",
-              backgroundSize: '100% 100%',
+              boxShadow: '0 4px 0 #0f2331, 0 8px 16px rgba(15, 35, 49, 0.25)',
             }}
           >
-            <span>{isHindiMode ? 'आगे बढ़ें' : 'Next Question'}</span>
-            <ChevronRight className="w-4 h-4" />
+            NEXT
           </button>
         ) : (
           <button
             type="button"
             onClick={onRequestSubmit}
-            className="px-10 sm:px-14 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:brightness-110 active:brightness-95 transition-all duration-200 flex items-center gap-2 cursor-pointer select-none"
+            className="px-10 sm:px-14 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-md hover:shadow-lg active:translate-y-0.5 transition-all duration-150 flex items-center gap-1.5 cursor-pointer select-none"
+            style={{
+              boxShadow: '0 4px 0 #064e3b, 0 8px 16px rgba(6, 78, 59, 0.25)',
+            }}
           >
-            <Send className="w-4 h-4" />
-            <span>{isHindiMode ? 'जमा करें' : 'Submit Examination'}</span>
+            <Send className="w-3.5 h-3.5" />
+            <span>SUBMIT</span>
           </button>
         )}
 
-        <p className="text-[11px] text-slate-600 font-medium italic">
-          {t.lockedWarning}
+        <p className="text-[11px] sm:text-xs text-slate-700 font-medium italic mt-0.5 text-center">
+          {t.lockedWarning || 'Locked once advanced (No back option)'}
         </p>
       </div>
     </div>
   );
 };
+
+export const McqExamination = React.memo(McqExaminationComponent);
+export default McqExamination;
+
+

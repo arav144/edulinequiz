@@ -25,3 +25,11 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Local Scratch & Backups
+scratch/
+backend/backups/
+test_system_integration.js
+*.tsbuildinfo
+walkthrough.md
+

@@ -4,7 +4,7 @@ const Student = require('../models/Student');
 const Attempt = require('../models/Attempt');
 const Subject = require('../models/Subject');
 
-// Generate unique certificate ID: EDU-YYYY-NNNNNN
+// Helper to generate unique certificate ID: EDU-YYYY-NNNNNN
 const generateCertificateId = async () => {
   const year = new Date().getFullYear();
   const count = await Attempt.countDocuments();
@@ -12,264 +12,356 @@ const generateCertificateId = async () => {
   return `EDU-${year}-${seq}`;
 };
 
-// @desc    Get all available quizzes for students (Published status)
+// Helper: Resolve student from request (supports JWT auth header or query/body studentIdentifier)
+async function resolveStudent(req) {
+  if (req.student) return req.student;
+
+  const rawIdentifier =
+    req.body?.studentIdentifier ||
+    req.query?.studentIdentifier ||
+    req.headers['x-student-identifier'];
+
+  if (rawIdentifier && typeof rawIdentifier === 'string') {
+    const student = await Student.findOne({
+      $or: [
+        { studentIdentifier: rawIdentifier.trim().toUpperCase() },
+        { email: rawIdentifier.trim().toLowerCase() },
+      ],
+    });
+    if (student) return student;
+  }
+
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. GET AVAILABLE QUIZZES (Class-Wise Filtering Enforced on Backend)
+// ─────────────────────────────────────────────────────────────────────────────
+// @desc    Get published quizzes matching the student's registered class or portal showcase
 // @route   GET /api/quizzes/available
 const getAvailableQuizzes = async (req, res, next) => {
   try {
-    const studentIdentifier = req.query.studentIdentifier
-      ? req.query.studentIdentifier.trim().toUpperCase()
-      : null;
+    const student = await resolveStudent(req);
 
-    // Fetch all quizzes to support Ongoing, Upcoming, and Past tabs
-    const allQuizzes = await Quiz.find({})
-      .populate('subjectId', 'name')
-      .lean();
-
-    // If studentIdentifier provided, fetch their recorded attempts
-    let studentAttemptMap = {};
-    if (studentIdentifier) {
-      const student = await Student.findOne({ studentIdentifier });
-      if (student) {
-        const attempts = await Attempt.find({ studentId: student._id }).lean();
-        attempts.forEach((att) => {
-          studentAttemptMap[att.quizId.toString()] = {
-            attemptId: att._id,
-            score: att.score,
-            totalQuestions: att.totalQuestions,
-            percentage: att.percentage,
-            result: att.result,
-            certificateId: att.certificateId,
-            submittedAt: att.submittedAt,
-          };
-        });
-      }
-    }
-
+    let quizzes = [];
+    let attemptMap = new Map();
+    let studentClass = '';
     const now = new Date();
 
-    // Process quizzes with real-time dynamic date-based status calculation, dates, and timing
-    const processedQuizzes = allQuizzes.map((quiz) => {
-      const quizIdStr = quiz._id.toString();
-      const existingAttempt = studentAttemptMap[quizIdStr] || null;
+    if (student) {
+      studentClass = (student.class || student.className || '').trim();
+      const classNum = studentClass.replace(/\D/g, '');
 
-      // Real-time automatic schedule calculation based on current server date & time:
-      // 1. If endDate has passed (now > endDate) or status is Closed -> Past
-      // 2. If startDate is in future (now < startDate) -> Upcoming
-      // 3. If within date range (startDate <= now <= endDate) -> Ongoing
-      let scheduleStatus = 'Ongoing';
-      if (quiz.status === 'Closed' || (quiz.endDate && new Date(quiz.endDate) < now)) {
-        scheduleStatus = 'Past';
-      } else if (quiz.startDate && new Date(quiz.startDate) > now) {
-        scheduleStatus = 'Upcoming';
-      } else {
-        scheduleStatus = 'Ongoing';
-      }
-
-      // Available to play only if Ongoing, Published, and not yet attempted
-      const isPlayable = scheduleStatus === 'Ongoing' && quiz.status !== 'Draft' && !existingAttempt;
-
-      const startDate = quiz.startDate || new Date('2026-08-15T00:00:00.000Z');
-      const endDate = quiz.endDate || new Date('2026-09-30T23:59:59.000Z');
-      const totalScore = quiz.totalScore || (quiz.numberOfQuestions ? quiz.numberOfQuestions * 2 : 20);
-      const timing = quiz.timing || '00:30 Hours';
-      const durationMinutes = quiz.durationMinutes || 30;
-      const bannerUrl = quiz.bannerUrl || '/img/hindidiwas.png';
-      
-      // Control whether timing box should be shown on card
-      const showTiming = quiz.showTiming !== false;
-
-      // Filter duplicate class sub-quizzes from portal cards unless explicitly enabled by admin
-      const isFeaturedOnPortal = quiz.isFeaturedOnPortal !== undefined
-        ? quiz.isFeaturedOnPortal
-        : (quiz.targetClass === 'All' || !quiz.name.includes('कक्षा'));
-
-      let displayName = quiz.batchName || (quiz.name || '');
-      displayName = displayName
-        .replace(/\s*[-–—]\s*(कक्षा|Class)\s*\d+/i, '')
-        .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-        .replace(/क्विज़/g, 'प्रतियोगिता')
-        .trim();
-
-      let cleanDesc = (quiz.description || '')
-        .replace(/कक्षा\s*\d+\s*के\s*(विद्यार्थियों|छात्रों)\s*के\s*लिए\s*/gi, 'विद्यार्थियों के लिए ')
-        .replace(/कक्षा\s*\d+\s*/gi, '')
-        .replace(/Class\s*\d+\s*/gi, '')
-        .trim();
-
-      // For general competition card, replace class 3 specific topics with comprehensive competition description
-      if (cleanDesc.includes('वर्णमाला, बुनियादी शब्द ज्ञान') || !cleanDesc) {
-        cleanDesc = 'विद्यार्थियों के लिए हिंदी व्याकरण, भाषा ज्ञान, मुहावरे, साहित्य और सामान्य ज्ञान पर आधारित रोचक प्रतियोगिता।';
-      }
-
-      let cleanInstructions = (quiz.instructions || '')
-        .replace(/कक्षा\s*\d+\s*के\s*(विद्यार्थियों|छात्रों)\s*के\s*लिए\s*/gi, 'विद्यार्थियों के लिए ')
-        .replace(/कक्षा\s*\d+\s*/gi, '')
-        .replace(/Class\s*\d+\s*/gi, '')
-        .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-        .replace(/क्विज़/g, 'प्रतियोगिता')
-        .trim();
-
-      return {
-        _id: quiz._id,
-        name: displayName,
-        rawName: quiz.name,
-        batchName: quiz.batchName || '',
-        scheduleBatchId: quiz.scheduleBatchId || null,
-        isRepresentative: quiz.isRepresentative || false,
-        subjectId: quiz.subjectId?._id || quiz.subjectId || null,
-        subject: quiz.subjectId?.name || '',
-        numberOfQuestions: quiz.numberOfQuestions || 10,
-        status: quiz.status,
-        passingPercentage: quiz.passingPercentage || 50,
-        timePerQuestion: quiz.timePerQuestion || 30,
-        description: cleanDesc,
-        instructions: cleanInstructions,
-        contactInfo: quiz.contactInfo || '',
-        language: quiz.language || 'en',
-        targetClass: quiz.targetClass || 'All',
-        startDate,
-        endDate,
-        expiryDate: endDate,
-        totalScore,
-        timing,
-        showTiming,
-        durationMinutes,
-        bannerUrl,
-        scheduleStatus,
-        isFeaturedOnPortal,
-        isPlayable,
-        isAttempted: !!existingAttempt,
-        attemptResult: existingAttempt,
-        createdAt: quiz.createdAt,
+      // Strict Backend Class Filter:
+      // Only return quizzes that are Published and match student's registered class
+      const classFilter = {
+        status: 'Published',
+        $or: [
+          { classes: studentClass },
+          ...(classNum
+            ? [
+                { classes: `Class ${classNum}` },
+                { classes: classNum },
+                { targetClass: `Class ${classNum}` },
+                { targetClass: classNum },
+                { name: { $regex: `Class ${classNum}`, $options: 'i' } },
+              ]
+            : []),
+          { targetClass: studentClass },
+          { targetClass: 'All' },
+        ],
       };
-    });
 
-    // Separate portal showcase competitions from internal sub-class quizzes
-    const statusOrder = { Ongoing: 0, Upcoming: 1, Past: 2 };
+      quizzes = await Quiz.find(classFilter)
+        .populate('subjectId', 'name')
+        .sort({ createdAt: -1 })
+        .lean();
 
-    const sortFn = (a, b) => {
-      // 1. Schedule Status: Ongoing -> Upcoming -> Past
-      const aStat = statusOrder[a.scheduleStatus] ?? 3;
-      const bStat = statusOrder[b.scheduleStatus] ?? 3;
-      if (aStat !== bStat) return aStat - bStat;
+      // Fetch this student's attempts to flag already-attempted quizzes
+      const attempts = await Attempt.find({ studentId: student._id }).lean();
+      attempts.forEach((att) => {
+        attemptMap.set(att.quizId.toString(), att);
+      });
+    } else {
+      // For guest visitors: only show quizzes featured on portal (respects 1-card competition grouping)
+      quizzes = await Quiz.find({
+        status: 'Published',
+        isFeaturedOnPortal: { $ne: false },
+      })
+        .populate('subjectId', 'name')
+        .sort({ createdAt: -1 })
+        .lean();
+    }
 
-      // 2. Start Date: Earlier dates first (13 Sep before 02 Oct)
-      const timeA = a.startDate ? new Date(a.startDate).getTime() : 0;
-      const timeB = b.startDate ? new Date(b.startDate).getTime() : 0;
-      if (timeA !== timeB) return timeA - timeB;
+    // Pre-fetch all batch siblings in a single batched query (Eliminates N+1 MongoDB roundtrips)
+    const batchIds = [...new Set(quizzes.map((q) => q.scheduleBatchId).filter(Boolean))];
+    const batchClassMap = new Map();
 
-      // 3. TargetClass === 'All' first
-      const aIsAll = a.targetClass === 'All' || !a.name.includes('कक्षा');
-      const bIsAll = b.targetClass === 'All' || !b.name.includes('कक्षा');
-      if (aIsAll && !bIsAll) return -1;
-      if (!aIsAll && bIsAll) return 1;
+    if (batchIds.length > 0) {
+      const allBatchSiblings = await Quiz.find({
+        scheduleBatchId: { $in: batchIds },
+        status: 'Published',
+      })
+        .select('scheduleBatchId targetClass classes')
+        .lean();
 
-      // 4. Class number ascending
-      const aNum = parseInt((a.targetClass || '').replace(/\D/g, '')) || 0;
-      const bNum = parseInt((b.targetClass || '').replace(/\D/g, '')) || 0;
-      if (aNum !== bNum) return aNum - bNum;
+      allBatchSiblings.forEach((b) => {
+        if (!b.scheduleBatchId) return;
+        if (!batchClassMap.has(b.scheduleBatchId)) {
+          batchClassMap.set(b.scheduleBatchId, new Set());
+        }
+        const set = batchClassMap.get(b.scheduleBatchId);
+        if (b.targetClass && b.targetClass !== 'All') set.add(b.targetClass);
+        if (Array.isArray(b.classes)) {
+          b.classes.forEach((c) => {
+            if (c && c !== 'All') set.add(c);
+          });
+        }
+      });
+    }
 
-      return 0;
-    };
+    // Process quizzes synchronously with dynamic server schedule status & batch metadata
+    const processed = quizzes.map((quiz) => {
+      const qIdStr = quiz._id.toString();
+      const existing = attemptMap.get(qIdStr);
 
-    processedQuizzes.sort(sortFn);
+      // Dynamic Server-Side Schedule Status calculation
+      const sDateObj = quiz.startDate ? new Date(quiz.startDate) : null;
+      const eDateObj = quiz.endDate ? new Date(quiz.endDate) : null;
+      let dynamicScheduleStatus = quiz.scheduleStatus || 'Ongoing';
 
-    // Filter featured quizzes for the homepage showcase (avoids duplicate class cards)
-    const portalQuizzes = processedQuizzes.filter((q) => q.isFeaturedOnPortal !== false);
+      if (quiz.status === 'Closed' || (eDateObj && eDateObj < now)) {
+        dynamicScheduleStatus = 'Past';
+      } else if (sDateObj && sDateObj > now) {
+        dynamicScheduleStatus = 'Upcoming';
+      } else {
+        dynamicScheduleStatus = 'Ongoing';
+      }
+
+      // If part of a batch, aggregate classes from pre-fetched in-memory batch map
+      let resolvedClasses = quiz.classes?.length ? quiz.classes : [quiz.targetClass || studentClass || 'All Classes'];
+      let resolvedTargetClass = quiz.targetClass || (quiz.classes && quiz.classes[0]) || (studentClass || 'All Classes');
+
+      if (quiz.scheduleBatchId && batchClassMap.has(quiz.scheduleBatchId)) {
+        const allBatchClasses = batchClassMap.get(quiz.scheduleBatchId);
+        if (allBatchClasses.size > 1) {
+          const classNums = Array.from(allBatchClasses)
+            .map((c) => parseInt(String(c).replace(/\D/g, ''), 10))
+            .filter((n) => !isNaN(n))
+            .sort((a, b) => a - b);
+          if (classNums.length > 1) {
+            resolvedTargetClass = `Class ${classNums[0]} to ${classNums[classNums.length - 1]}`;
+            resolvedClasses = classNums.map((n) => `Class ${n}`);
+          }
+        }
+      }
+
+      const isPlayable = (quiz.isPlayable !== false) && (dynamicScheduleStatus === 'Ongoing');
+
+        return {
+          _id: quiz._id,
+          name: quiz.batchName || quiz.name,
+          batchName: quiz.batchName || '',
+          scheduleBatchId: quiz.scheduleBatchId || null,
+          subject: quiz.subjectId?.name || 'General Knowledge',
+          subjectId: quiz.subjectId?._id || quiz.subjectId || null,
+          targetClass: resolvedTargetClass,
+          classes: resolvedClasses,
+          numberOfQuestions: quiz.numberOfQuestions || 15,
+          timePerQuestion: quiz.timePerQuestion || 40,
+          passingPercentage: quiz.passingPercentage || 50,
+          totalScore: quiz.totalScore || quiz.numberOfQuestions || 15,
+          durationMinutes: quiz.durationMinutes || Math.ceil(((quiz.numberOfQuestions || 15) * (quiz.timePerQuestion || 40)) / 60),
+          timing: quiz.timing || '00:10 Hours',
+          showTiming: quiz.showTiming !== false,
+          startDate: quiz.startDate || null,
+          endDate: quiz.endDate || null,
+          isPlayable,
+          status: quiz.status,
+          description: quiz.description || '',
+          instructions: quiz.instructions || '',
+          bannerUrl: quiz.bannerUrl || '/img/hindidiwas.png',
+          scheduleStatus: dynamicScheduleStatus,
+          isAttempted: !!existing,
+          attemptResult: existing
+            ? {
+                attemptId: existing._id,
+                score: existing.score,
+                totalQuestions: existing.totalQuestions,
+                percentage: existing.percentage,
+                result: existing.result,
+                certificateId: existing.certificateId,
+                submittedAt: existing.submittedAt,
+              }
+            : null,
+        };
+      });
 
     res.status(200).json({
       success: true,
-      count: portalQuizzes.length,
-      quizzes: portalQuizzes,
-      allQuizzes: processedQuizzes,
-      data: portalQuizzes,
+      count: processed.length,
+      studentClass: studentClass || 'All',
+      quizzes: processed,
+      data: processed,
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Verify student identification and attempt eligibility
-// @route   POST /api/quizzes/:id/verify-student
-const verifyStudentAttempt = async (req, res, next) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. GET SINGLE QUIZ BY ID
+// ─────────────────────────────────────────────────────────────────────────────
+// @desc    Get single quiz and verify student class authorization
+// @route   GET /api/quizzes/:id
+const getQuizById = async (req, res, next) => {
   try {
-    const { id: quizId } = req.params;
-    const { studentIdentifier, name, className, section, schoolName } = req.body;
+    const { id } = req.params;
+    const quiz = await Quiz.findById(id).populate('subjectId', 'name').lean();
 
-    const cleanId = (studentIdentifier && studentIdentifier.trim())
-      ? studentIdentifier.trim().toUpperCase()
-      : `STU-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const cleanName = name && name.trim() ? name.trim() : 'Student';
-    const cleanClass = className && className.trim() ? className.trim() : '';
-    const cleanSec = section && section.trim() ? section.trim() : '';
-    const cleanSchool = schoolName && schoolName.trim() ? schoolName.trim() : '';
-
-    // Find or create student record
-    let student = await Student.findOne({ studentIdentifier: cleanId });
-    if (!student) {
-      student = await Student.create({
-        studentIdentifier: cleanId,
-        name: cleanName,
-        className: cleanClass,
-        section: cleanSec,
-        schoolName: cleanSchool,
-      });
-    } else {
-      let updated = false;
-      if (cleanName && student.name !== cleanName) { student.name = cleanName; updated = true; }
-      if (cleanClass && student.className !== cleanClass) { student.className = cleanClass; updated = true; }
-      if (cleanSec && student.section !== cleanSec) { student.section = cleanSec; updated = true; }
-      if (cleanSchool && student.schoolName !== cleanSchool) { student.schoolName = cleanSchool; updated = true; }
-      if (updated) await student.save();
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found.' });
     }
 
-    // Resolve effective class quiz if part of a scheduled batch
-    let effectiveQuizId = quizId;
-    let resolvedQuiz = null;
-    const baseQuiz = await Quiz.findById(quizId).lean();
-    if (baseQuiz) {
-      resolvedQuiz = baseQuiz;
-      if (cleanClass) {
-        const classNum = cleanClass.replace(/\D/g, '');
-        let sibling = null;
-        if (baseQuiz.scheduleBatchId) {
-          const siblings = await Quiz.find({ scheduleBatchId: baseQuiz.scheduleBatchId }).lean();
-          sibling = siblings.find((s) => {
-            const sNum = (s.targetClass || '').replace(/\D/g, '');
-            if (classNum && sNum === classNum) return true;
-            if (s.name && (s.name.includes(`कक्षा ${classNum}`) || s.name.toLowerCase().includes(`class ${classNum}`))) return true;
-            return false;
-          });
-        } else {
-          const basePrefix = (baseQuiz.name || '').replace(/\s*[-–—]\s*(कक्षा|Class)\s*\d+/i, '').trim();
-          if (basePrefix) {
-            const siblings = await Quiz.find({ name: { $regex: basePrefix, $options: 'i' } }).lean();
-            sibling = siblings.find((s) => {
-              const sNum = (s.targetClass || '').replace(/\D/g, '');
-              if (classNum && sNum === classNum) return true;
-              return false;
-            });
-          }
-        }
-        if (sibling) {
-          effectiveQuizId = sibling._id.toString();
-          resolvedQuiz = sibling;
-        }
+    const student = await resolveStudent(req);
+    if (student) {
+      const studentClass = (student.class || student.className || '').trim();
+      const classNum = studentClass.replace(/\D/g, '');
+
+      // Verify class authorization
+      const isAuthorized =
+        quiz.targetClass === 'All' ||
+        quiz.targetClass === studentClass ||
+        (quiz.classes && quiz.classes.includes(studentClass)) ||
+        (classNum && quiz.name.toLowerCase().includes(`class ${classNum}`));
+
+      if (!isAuthorized && quiz.status !== 'Draft') {
+        return res.status(403).json({
+          success: false,
+          message: `Access denied. This quiz is restricted to ${quiz.targetClass || 'other classes'}. Your class is ${studentClass}.`,
+        });
       }
     }
 
-    // Check if attempt exists for this student on either the base quiz or resolved class quiz
+    res.status(200).json({
+      success: true,
+      quiz: {
+        _id: quiz._id,
+        name: quiz.name,
+        subject: quiz.subjectId?.name || 'General',
+        numberOfQuestions: quiz.numberOfQuestions || 15,
+        timePerQuestion: quiz.timePerQuestion || 40,
+        passingPercentage: quiz.passingPercentage || 50,
+        status: quiz.status,
+        description: quiz.description,
+        instructions: quiz.instructions,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. START QUIZ (Enforces Class Eligibility & One Attempt Rule)
+// ─────────────────────────────────────────────────────────────────────────────
+// @desc    Initiate quiz and retrieve questions (without exposing correct answers)
+// @route   GET or POST /api/quizzes/:id/start
+const startQuiz = async (req, res, next) => {
+  try {
+    const { id: quizId } = req.params;
+    const student = await resolveStudent(req);
+
+    if (!student) {
+      return res.status(401).json({
+        success: false,
+        message: 'Please register and verify your email before starting a quiz.',
+      });
+    }
+
+    const quiz = await Quiz.findById(quizId).populate('subjectId', 'name').lean();
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found.' });
+    }
+
+    // Must be published
+    if (quiz.status !== 'Published') {
+      return res.status(403).json({
+        success: false,
+        message: 'This quiz is not currently published.',
+      });
+    }
+
+    // Check future schedule
+    const now = new Date();
+    const sDateObj = quiz.startDate ? new Date(quiz.startDate) : null;
+    if (quiz.scheduleStatus === 'Upcoming' || (sDateObj && sDateObj > now)) {
+      return res.status(403).json({
+        success: false,
+        message: 'This quiz is scheduled for a future date and is not yet open.',
+      });
+    }
+
+    // 1. Resolve class-specific quiz if this is part of a scheduled batch
+    const studentClass = (student.class || student.className || '').trim();
+    const classNum = studentClass.replace(/\D/g, '');
+
+    let targetQuiz = quiz;
+    if (quiz.scheduleBatchId) {
+      const classSpecificQuiz = await Quiz.findOne({
+        scheduleBatchId: quiz.scheduleBatchId,
+        status: 'Published',
+        $or: [
+          { targetClass: studentClass },
+          ...(classNum
+            ? [
+                { targetClass: `Class ${classNum}` },
+                { targetClass: classNum },
+                { classes: `Class ${classNum}` },
+                { classes: classNum },
+                { name: { $regex: `(कक्षा|Class)\\s*${classNum}`, $options: 'i' } },
+              ]
+            : []),
+          { classes: studentClass },
+        ],
+      }).populate('subjectId', 'name').lean();
+      if (classSpecificQuiz) {
+        targetQuiz = classSpecificQuiz;
+      }
+    }
+
+    // 2. Strict Class Eligibility Authorization
+    const isClassEligible =
+      targetQuiz.targetClass === 'All' ||
+      targetQuiz.targetClass === studentClass ||
+      (classNum && targetQuiz.targetClass === `Class ${classNum}`) ||
+      (classNum && targetQuiz.targetClass === classNum) ||
+      (targetQuiz.classes && (
+        targetQuiz.classes.includes(studentClass) ||
+        (classNum && targetQuiz.classes.includes(`Class ${classNum}`)) ||
+        (classNum && targetQuiz.classes.includes(classNum))
+      )) ||
+      (classNum && targetQuiz.name && targetQuiz.name.toLowerCase().includes(`class ${classNum}`));
+
+    if (!isClassEligible) {
+      return res.status(403).json({
+        success: false,
+        message: `Forbidden: You are registered in ${studentClass}, but this quiz is for ${targetQuiz.targetClass}.`,
+      });
+    }
+
+    // 3. Strict One Student = One Attempt Check
     const existingAttempt = await Attempt.findOne({
       studentId: student._id,
-      quizId: { $in: [quizId, effectiveQuizId] },
+      quizId: targetQuiz._id,
     }).lean();
 
     if (existingAttempt) {
-      return res.status(200).json({
-        success: true,
-        canAttempt: false,
+      return res.status(403).json({
+        success: false,
+        code: 'ALREADY_ATTEMPTED',
         alreadyAttempted: true,
-        message: 'You have already attempted this quiz. Only one attempt is permitted.',
+        message: 'You have already attempted this quiz. Each quiz can only be attempted once.',
         attempt: {
           attemptId: existingAttempt._id,
           score: existingAttempt.score,
@@ -282,299 +374,208 @@ const verifyStudentAttempt = async (req, res, next) => {
       });
     }
 
-    const studentData = {
-      id: student._id,
-      studentIdentifier: student.studentIdentifier,
-      name: student.name,
-      className: student.className || '',
-      section: student.section || '',
-      schoolName: student.schoolName || '',
-    };
-
-    res.status(200).json({
-      success: true,
-      canAttempt: true,
-      alreadyAttempted: false,
-      student: studentData,
-      data: studentData,
-      effectiveQuizId,
-      resolvedQuizId: effectiveQuizId,
-      quiz: resolvedQuiz,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Start quiz: retrieve questions (without exposing correct answers)
-// @route   GET /api/quizzes/:id/start
-const startQuiz = async (req, res, next) => {
-  try {
-    const { id: quizId } = req.params;
-    const studentIdentifier = req.query.studentIdentifier
-      ? req.query.studentIdentifier.trim().toUpperCase()
-      : null;
-
-    if (!studentIdentifier) {
-      return res.status(400).json({
-        success: false,
-        message: 'Student identification required to initiate assessment.',
-      });
-    }
-
-    const baseQuiz = await Quiz.findById(quizId).populate('subjectId', 'name').lean();
-    if (!baseQuiz) {
-      return res.status(404).json({ success: false, message: 'Quiz not found.' });
-    }
-
-    let quiz = baseQuiz;
-    const student = await Student.findOne({ studentIdentifier });
-    const studentClass = (req.query.className || student?.className || '').trim();
-    if (studentClass) {
-      const classNum = studentClass.replace(/\D/g, '');
-      let sibling = null;
-      if (baseQuiz.scheduleBatchId) {
-        const siblings = await Quiz.find({ scheduleBatchId: baseQuiz.scheduleBatchId }).populate('subjectId', 'name').lean();
-        sibling = siblings.find((s) => {
-          const sNum = (s.targetClass || '').replace(/\D/g, '');
-          if (classNum && sNum === classNum) return true;
-          if (s.name && (s.name.includes(`कक्षा ${classNum}`) || s.name.toLowerCase().includes(`class ${classNum}`))) return true;
-          return false;
-        });
-      } else {
-        const basePrefix = (baseQuiz.name || '').replace(/\s*[-–—]\s*(कक्षा|Class)\s*\d+/i, '').trim();
-        if (basePrefix) {
-          const siblings = await Quiz.find({ name: { $regex: basePrefix, $options: 'i' } }).populate('subjectId', 'name').lean();
-          sibling = siblings.find((s) => {
-            const sNum = (s.targetClass || '').replace(/\D/g, '');
-            if (classNum && sNum === classNum) return true;
-            return false;
-          });
-        }
-      }
-      if (sibling) {
-        quiz = sibling;
-      }
-    }
-
-    if (quiz.status === 'Closed') {
-      return res.status(403).json({
-        success: false,
-        message: 'This quiz is not currently open for examination.',
-      });
-    }
-
-    // Check student attempt status
-    if (student) {
-      const existingAttempt = await Attempt.findOne({
-        studentId: student._id,
-        quizId: quiz._id,
-      });
-
-      if (existingAttempt) {
-        return res.status(403).json({
-          success: false,
-          code: 'ALREADY_ATTEMPTED',
-          message: 'This quiz has already been attempted by you. Only one attempt is allowed.',
-        });
-      }
-    }
-
-    // Fetch quiz questions — exclude correctAnswer/explanation, include imageUrl/audioUrl
-    const questions = await Question.find({ quizId: quiz._id })
-      .sort({ createdAt: 1 })
+    // Fetch Questions for this Quiz
+    let questions = await Question.find({ quizId: targetQuiz._id })
+      .select('-correctAnswer')
       .lean();
 
-    const quizDetails = {
-      _id: quiz._id,
-      name: (quiz.name || '')
-        .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-        .replace(/क्विज़/g, 'प्रतियोगिता'),
-      subjectId: quiz.subjectId?._id || quiz.subjectId || null,
-      subject: quiz.subjectId?.name || '',
-      numberOfQuestions: quiz.numberOfQuestions,
-      passingPercentage: quiz.passingPercentage || 50,
-      timePerQuestion: quiz.timePerQuestion || 30,
-      description: quiz.description || '',
-      instructions: (quiz.instructions || '')
-        .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-        .replace(/क्विज़/g, 'प्रतियोगिता'),
-      contactInfo: quiz.contactInfo || '',
-      language: quiz.language || 'en',
-    };
+    // If questions aren't directly linked by quizId, query by subject or fallback
+    if (!questions || questions.length === 0) {
+      if (targetQuiz.subjectId) {
+        questions = await Question.find({ subjectId: targetQuiz.subjectId._id || targetQuiz.subjectId })
+          .select('-correctAnswer')
+          .limit(targetQuiz.numberOfQuestions || 15)
+          .lean();
+      }
+    }
 
-    const formattedQuestions = questions.map((q, idx) => ({
+    // Format questions strictly as 4-option MCQs (A, B, C, D)
+    const sanitizedQuestions = questions.map((q, idx) => ({
       _id: q._id,
       questionNumber: idx + 1,
       question: q.question,
-      options: q.options,
-      imageUrl: q.imageUrl || '',
-      audioUrl: q.audioUrl || '',
+      options: {
+        A: q.options?.A || q.optionA || 'Option A',
+        B: q.options?.B || q.optionB || 'Option B',
+        C: q.options?.C || q.optionC || 'Option C',
+        D: q.options?.D || q.optionD || 'Option D',
+      },
+      imageUrl: q.imageUrl || null,
+      audioUrl: q.audioUrl || null,
     }));
 
     res.status(200).json({
       success: true,
-      quiz: quizDetails,
-      questions: formattedQuestions,
-      timePerQuestion: quiz.timePerQuestion || 30,
-      data: {
-        quiz: quizDetails,
-        questions: formattedQuestions,
-        timePerQuestion: quiz.timePerQuestion || 30,
+      quiz: {
+        _id: targetQuiz._id,
+        name: targetQuiz.name,
+        subject: targetQuiz.subjectId?.name || 'General',
+        numberOfQuestions: sanitizedQuestions.length || targetQuiz.numberOfQuestions || 15,
+        timePerQuestion: targetQuiz.timePerQuestion || 40,
+        passingPercentage: targetQuiz.passingPercentage || 50,
       },
+      questions: sanitizedQuestions,
+      numberOfQuestions: sanitizedQuestions.length,
+      timePerQuestion: quiz.timePerQuestion || 40,
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Submit student quiz attempt, evaluate score, enforce 1-attempt constraint
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. SUBMIT QUIZ ATTEMPT (Server-Side Evaluation & One-Attempt DB Enforcement)
+// ─────────────────────────────────────────────────────────────────────────────
+// @desc    Submit student answers, evaluate score server-side, save attempt
 // @route   POST /api/quizzes/:id/attempt
 const submitQuizAttempt = async (req, res, next) => {
   try {
     const { id: quizId } = req.params;
-    const { studentIdentifier, name, className, section, schoolName, answers } = req.body;
+    const { answers = {} } = req.body;
 
-    if (!studentIdentifier || !studentIdentifier.trim()) {
-      return res.status(400).json({
+    const student = await resolveStudent(req);
+    if (!student) {
+      return res.status(401).json({
         success: false,
-        message: 'Student Roll Number or ID is required for submission.',
+        message: 'Authentication required to submit quiz attempt.',
       });
     }
 
-    const cleanId = studentIdentifier.trim().toUpperCase();
-    const cleanName = name && name.trim() ? name.trim() : 'Student';
-    const cleanClass = className && className.trim() ? className.trim() : '';
-    const cleanSec = section && section.trim() ? section.trim() : '';
-    const cleanSchool = schoolName && schoolName.trim() ? schoolName.trim() : '';
-
-    // 1. Verify Quiz Existence & Status
-    const quiz = await Quiz.findById(quizId).populate('subjectId', 'name');
+    const quiz = await Quiz.findById(quizId).populate('subjectId', 'name').lean();
     if (!quiz) {
       return res.status(404).json({ success: false, message: 'Quiz not found.' });
     }
 
-    if (quiz.status === 'Closed') {
+    // 1. Resolve class-specific quiz if this is part of a scheduled batch
+    const studentClass = (student.class || student.className || '').trim();
+    const classNum = studentClass.replace(/\D/g, '');
+
+    let targetQuiz = quiz;
+    if (quiz.scheduleBatchId) {
+      const classSpecificQuiz = await Quiz.findOne({
+        scheduleBatchId: quiz.scheduleBatchId,
+        status: 'Published',
+        $or: [
+          { targetClass: studentClass },
+          ...(classNum
+            ? [
+                { targetClass: `Class ${classNum}` },
+                { targetClass: classNum },
+                { classes: `Class ${classNum}` },
+                { classes: classNum },
+                { name: { $regex: `(कक्षा|Class)\\s*${classNum}`, $options: 'i' } },
+              ]
+            : []),
+          { classes: studentClass },
+        ],
+      }).populate('subjectId', 'name').lean();
+      if (classSpecificQuiz) {
+        targetQuiz = classSpecificQuiz;
+      }
+    }
+
+    // 2. Verify student class authorization
+    const isClassEligible =
+      targetQuiz.targetClass === 'All' ||
+      targetQuiz.targetClass === studentClass ||
+      (classNum && targetQuiz.targetClass === `Class ${classNum}`) ||
+      (classNum && targetQuiz.targetClass === classNum) ||
+      (targetQuiz.classes && (
+        targetQuiz.classes.includes(studentClass) ||
+        (classNum && targetQuiz.classes.includes(`Class ${classNum}`)) ||
+        (classNum && targetQuiz.classes.includes(classNum))
+      )) ||
+      (classNum && targetQuiz.name && targetQuiz.name.toLowerCase().includes(`class ${classNum}`));
+
+    if (!isClassEligible) {
       return res.status(403).json({
         success: false,
-        message: 'This quiz is closed for submissions.',
+        message: 'Unauthorized: Quiz does not match your registered class.',
       });
     }
 
-    // Resolve class quiz if this quiz belongs to a scheduled batch
-    let targetQuiz = quiz;
-    if (cleanClass) {
-      const classNum = cleanClass.replace(/\D/g, '');
-      let sibling = null;
-      if (quiz.scheduleBatchId) {
-        const siblings = await Quiz.find({ scheduleBatchId: quiz.scheduleBatchId }).populate('subjectId', 'name');
-        sibling = siblings.find((s) => {
-          const sNum = (s.targetClass || '').replace(/\D/g, '');
-          if (classNum && sNum === classNum) return true;
-          if (s.name && (s.name.includes(`कक्षा ${classNum}`) || s.name.toLowerCase().includes(`class ${classNum}`))) return true;
-          return false;
-        });
-      } else {
-        const basePrefix = (quiz.name || '').replace(/\s*[-–—]\s*(कक्षा|Class)\s*\d+/i, '').trim();
-        if (basePrefix) {
-          const siblings = await Quiz.find({ name: { $regex: basePrefix, $options: 'i' } }).populate('subjectId', 'name');
-          sibling = siblings.find((s) => {
-            const sNum = (s.targetClass || '').replace(/\D/g, '');
-            if (classNum && sNum === classNum) return true;
-            return false;
-          });
-        }
-      }
-      if (sibling) {
-        targetQuiz = sibling;
-      }
-    }
-
-    // 2. Find or register Student
-    let student = await Student.findOne({ studentIdentifier: cleanId });
-    if (!student) {
-      student = await Student.create({
-        studentIdentifier: cleanId,
-        name: cleanName,
-        className: cleanClass,
-        section: cleanSec,
-        schoolName: cleanSchool,
-      });
-    } else {
-      let updated = false;
-      if (cleanName && student.name !== cleanName) { student.name = cleanName; updated = true; }
-      if (cleanClass && student.className !== cleanClass) { student.className = cleanClass; updated = true; }
-      if (cleanSec && student.section !== cleanSec) { student.section = cleanSec; updated = true; }
-      if (cleanSchool && student.schoolName !== cleanSchool) { student.schoolName = cleanSchool; updated = true; }
-      if (updated) await student.save();
-    }
-
-    // 3. Pre-check: Has this student already attempted?
-    const existing = await Attempt.findOne({
-      studentId: student._id,
-      quizId: { $in: [quiz._id, targetQuiz._id] },
-    });
-
+    // Check duplicate attempt
+    const existing = await Attempt.findOne({ studentId: student._id, quizId: targetQuiz._id });
     if (existing) {
       return res.status(403).json({
         success: false,
         code: 'ALREADY_ATTEMPTED',
-        message: 'This quiz has already been attempted by this student. Duplicate submission rejected.',
+        message: 'This quiz has already been completed by you.',
+        attemptId: existing._id,
       });
     }
 
-    // 4. Fetch all questions with answers from database
-    const questions = await Question.find({ quizId: targetQuiz._id }).lean();
-    if (questions.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Quiz has no registered questions.',
-      });
+    // Fetch questions with correct answers for grading
+    let questions = await Question.find({ quizId: targetQuiz._id }).lean();
+    if (!questions || questions.length === 0) {
+      if (targetQuiz.subjectId) {
+        questions = await Question.find({ subjectId: targetQuiz.subjectId._id || targetQuiz.subjectId })
+          .limit(targetQuiz.numberOfQuestions || 15)
+          .lean();
+      }
     }
 
-    // 5. Grade Answers
-    let score = 0;
-    const userAnswers = answers || {};
-    const questionReview = [];
+    let correctAnswers = 0;
+    let wrongAnswers = 0;
+    const review = [];
 
     questions.forEach((q) => {
-      const qId = q._id.toString();
-      const studentChoice = userAnswers[qId] ? String(userAnswers[qId]).toUpperCase() : null;
-      const isCorrect = studentChoice === q.correctAnswer;
+      const studentChoice = answers[q._id.toString()] || 'Unanswered';
+      const actualAnswer = (q.correctAnswer || 'A').toUpperCase().trim();
+      const isCorrect = studentChoice.toUpperCase().trim() === actualAnswer;
 
-      if (isCorrect) score++;
+      if (isCorrect) {
+        correctAnswers++;
+      } else {
+        wrongAnswers++;
+      }
 
-      questionReview.push({
+      review.push({
         questionId: q._id,
         question: q.question,
-        options: q.options,
-        studentChoice: studentChoice || 'Unanswered',
-        correctAnswer: q.correctAnswer,
+        options: {
+          A: q.options?.A || q.optionA || '',
+          B: q.options?.B || q.optionB || '',
+          C: q.options?.C || q.optionC || '',
+          D: q.options?.D || q.optionD || '',
+        },
+        studentChoice,
+        correctAnswer: actualAnswer,
         isCorrect,
         explanation: q.explanation || '',
       });
     });
 
-    const totalQuestions = questions.length;
-    const correctAnswers = score;
-    const wrongAnswers = totalQuestions - score;
-    const percentage = Math.round((score / totalQuestions) * 100);
+    const totalQuestions = questions.length || 1;
+    const percentage = Math.round((correctAnswers / totalQuestions) * 100);
     const passingPercentage = targetQuiz.passingPercentage || 50;
-    const result = percentage >= passingPercentage ? 'Pass' : 'Fail';
 
-    // 6. Generate Certificate ID for students
-    let certificateId = await generateCertificateId();
+    // Score-dependent encouraging remark (NEVER "Fail")
+    let result = 'Better Luck Next Time';
+    if (percentage >= 90) {
+      result = 'Outstanding';
+    } else if (percentage >= 75) {
+      result = 'Very Good';
+    } else if (percentage >= 60) {
+      result = 'Good Effort';
+    } else if (percentage >= passingPercentage) {
+      result = 'Pass';
+    } else {
+      result = 'Better Luck Next Time';
+    }
 
-    // 7. Record Attempt with MongoDB Unique Constraint
+    const score = correctAnswers;
+    const certificateId = await generateCertificateId();
+
+    // Create Attempt record (Protected by unique compound index { studentId: 1, quizId: 1 })
     const attempt = await Attempt.create({
       studentId: student._id,
       quizId: targetQuiz._id,
       studentIdentifier: student.studentIdentifier,
-      studentName: student.name,
-      className: cleanClass || student.className || '',
-      section: cleanSec || student.section || '',
-      schoolName: cleanSchool || student.schoolName || '',
-      answers: userAnswers,
+      studentName: student.name || `${student.firstName} ${student.lastName}`.trim(),
+      className: studentClass,
+      schoolName: student.schoolName || '',
+      answers,
       score,
       correctAnswers,
       wrongAnswers,
@@ -587,40 +588,43 @@ const submitQuizAttempt = async (req, res, next) => {
 
     const resultPayload = {
       attemptId: attempt._id,
-      studentName: student.name,
-      studentIdentifier: student.studentIdentifier,
-      className: attempt.className || '',
-      section: attempt.section || '',
-      schoolName: attempt.schoolName || '',
-      quizName: quiz.name,
-      subject: quiz.subjectId ? quiz.subjectId.name : '',
       score,
+      totalQuestions,
       correctAnswers,
       wrongAnswers,
-      totalQuestions,
       percentage,
       result,
-      passingPercentage,
       certificateId,
       submittedAt: attempt.submittedAt,
-      review: questionReview,
+      studentName: student.name || `${student.firstName} ${student.lastName}`.trim(),
+      quizName: targetQuiz.name,
+      subject: targetQuiz.subjectId?.name || 'General',
+      review,
     };
 
     res.status(201).json({
       success: true,
-      message: 'Quiz submitted and evaluated successfully',
+      message: 'Quiz attempt evaluated and recorded successfully.',
+      ...resultPayload,
       result: resultPayload,
       data: resultPayload,
     });
   } catch (error) {
+    // Catch MongoDB duplicate key error code 11000
+    if (error.code === 11000) {
+      return res.status(403).json({
+        success: false,
+        code: 'ALREADY_ATTEMPTED',
+        message: 'Duplicate attempt blocked. You can only attempt this quiz once.',
+      });
+    }
     next(error);
   }
 };
 
 module.exports = {
   getAvailableQuizzes,
-  verifyStudentAttempt,
+  getQuizById,
   startQuiz,
   submitQuizAttempt,
 };
-

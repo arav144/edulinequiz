@@ -81,7 +81,7 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
             </p>
 
             {/* Quick Metrics */}
-            <div className="grid grid-cols-3 gap-2 pt-1">
+            <div className="grid grid-cols-2 gap-3 pt-1">
               <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100/80 text-center sm:text-left">
                 <span className="text-[10px] uppercase font-bold text-indigo-600 block">
                   {isHindiMode ? 'कुल प्रश्न' : 'Questions'}
@@ -96,14 +96,6 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
                 </span>
                 <span className="text-xs sm:text-sm font-black text-slate-900 font-mono">
                   {quiz?.passingPercentage || 50}%
-                </span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-100/80 text-center sm:text-left">
-                <span className="text-[10px] uppercase font-bold text-amber-600 block">
-                  {isHindiMode ? 'समय सीमा' : 'Time Limit'}
-                </span>
-                <span className="text-xs sm:text-sm font-black text-slate-900 font-mono">
-                  {isHindiMode ? '30 सेकंड / प्रश्न' : '30s / Q'}
                 </span>
               </div>
             </div>
@@ -122,6 +114,12 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
                     .replace(/Class\s*\d+\s*/gi, '')
                     .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
                     .replace(/क्विज़/g, 'प्रतियोगिता')
+                    .replace(/You have \d+\s*(seconds|sec|s)\s*per question\.?/gi, '')
+                    .replace(/Each question has a countdown timer[^.]*\.?/gi, '')
+                    .replace(/Each question has a time limit[^.]*\.?/gi, '')
+                    .replace(/प्रत्येक प्रश्न के लिए निर्धारित समय[^.]*\.?/gi, '')
+                    .replace(/\(\s*\d+\s*(सेकंड|seconds|sec|s)\s*\)/gi, '')
+                    .replace(/\d+\s*(seconds|sec|s)\s*per question\.?/gi, '')
                     .split('\n')
                     .map((s: string) => s.trim())
                     .filter((s: string) => s && !s.includes('वर्णमाला, बुनियादी शब्द ज्ञान'))
@@ -129,7 +127,6 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
                 ? [
                     'प्रत्येक प्रश्न को ध्यानपूर्वक पढ़ें और दिए गए विकल्पों में से सही उत्तर चुनें।',
                     'सभी प्रश्नों के उत्तर देना अनिवार्य है।',
-                    'प्रत्येक प्रश्न के लिए निर्धारित समय (30 सेकंड) है, जिसके बाद अगला प्रश्न स्वतः आ जाएगा।',
                     'एक बार आगे बढ़ने के बाद पिछले प्रश्न पर वापस नहीं जाया जा सकता।',
                     'सभी प्रश्न पूरे करने के बाद ‘जमा करें’ बटन पर क्लिक करें।',
                     'प्रतियोगिता पूरी होने के बाद अपना स्कोर/परिणाम एवं प्रमाणपत्र प्राप्त करें।',
@@ -137,7 +134,6 @@ export const InstructionsModal: React.FC<InstructionsModalProps> = ({
                 : [
                     'Read each question carefully and choose the correct option from A, B, C, or D.',
                     'Answering all questions is mandatory.',
-                    'Each question has a countdown timer, after which the next question will automatically appear.',
                     'Once you move forward, you cannot go back to previous questions.',
                     'Click the "Submit" button after completing all questions.',
                     'View and download your score card and certificate after completion.',

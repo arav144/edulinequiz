@@ -19,7 +19,7 @@ Follow these steps to deploy **Backend** and **Frontend** on Vercel so the stude
    | `JWT_SECRET` | `quiz_system_super_secure_jwt_secret_2026_x99y` |
    | `NODE_ENV` | `production` |
    | `ADMIN_USERNAME` | `admin` |
-   | `ADMIN_PASSWORD` | `admin123` |
+   | `ADMIN_PASSWORD` | `eduline@2026` |
    | `CLOUDINARY_CLOUD_NAME` | `ulk2jofl` |
    | `CLOUDINARY_API_KEY` | `284442367654776` |
    | `CLOUDINARY_API_SECRET` | `lFeMLiQ4Vp5Xo-utWM3EwFvuPmg` |

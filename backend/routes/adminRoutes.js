@@ -19,6 +19,9 @@ const {
   getAllAttempts,
   getAttemptById,
   getQuizAttempts,
+  getAllStudents,
+  getStudentById,
+  deleteStudent,
 } = require('../controllers/adminController');
 const { createSubject, updateSubject, deleteSubject } = require('../controllers/subjectController');
 const {
@@ -66,6 +69,11 @@ router.put('/classes/:id', updateClass);
 router.delete('/classes/:id', deleteClass);
 router.patch('/classes/:id/toggle', toggleClassActive);
 router.patch('/classes/:id/assign-quiz', assignQuizToClass);
+
+// Students Management
+router.get('/students', getAllStudents);
+router.get('/students/:id', getStudentById);
+router.delete('/students/:id', deleteStudent);
 
 // Attempts / Results
 router.get('/attempts', getAllAttempts);

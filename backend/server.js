@@ -70,7 +70,10 @@ app.use(async (req, res, next) => {
 
 // Serve Admin Panel (static SPA bundled with backend) at root-relative /admin.
 // vercel.json forwards "/admin/*" straight to this service.
-app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
+app.use('/admin', express.static(path.join(__dirname, 'public', 'admin'), {
+  maxAge: 0,
+  etag: true,
+}));
 app.get('/admin/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
@@ -85,6 +88,16 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Serve static assets: uploads and images with browser caching
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads'), {
+  maxAge: '1d',
+  etag: true,
+}));
+app.use('/img', express.static(path.join(__dirname, 'public', 'img'), {
+  maxAge: '7d',
+  etag: true,
+}));
+
 // Mount Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/subjects', require('./routes/subjectRoutes'));
@@ -94,6 +107,8 @@ app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/admin/upload', require('./routes/uploadRoutes'));
 app.use('/api/results', require('./routes/resultRoutes'));
+app.use('/api/theme', require('./routes/themeRoutes'));
+app.use('/api/admin/theme', require('./routes/themeRoutes'));
 
 // 404 Handler for undefined API routes
 app.use('/api/*', (req, res) => {

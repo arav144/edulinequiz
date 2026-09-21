@@ -31,12 +31,12 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ review, lang }) 
   });
 
   return (
-    <div className="bg-white/95 backdrop-blur-md rounded-3xl p-5 sm:p-8 space-y-6 text-slate-800 shadow-2xl border border-amber-200/70">
+    <div className="bg-white/95 backdrop-blur-md rounded-3xl p-5 sm:p-8 space-y-6 text-slate-800 shadow-2xl border border-[#2d7995]/20">
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
         <div>
           <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2 font-hindi">
-            <BookMarked className="w-5 h-5 text-indigo-600 flex-shrink-0" />
+            <BookMarked className="w-5 h-5 text-[#2d7995] flex-shrink-0" />
             <span>
               {isHindiMode ? 'प्रश्नोत्तरी समीक्षा (कौन-से सही, कौन-से गलत)' : t.qReviewTitle}
             </span>

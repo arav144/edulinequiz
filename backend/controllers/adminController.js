@@ -219,12 +219,15 @@ const createQuiz = async (req, res, next) => {
       contactInfo: contactInfo ? contactInfo.trim() : '',
       language: language === 'hi' ? 'hi' : 'en',
       targetClass: targetClass ? targetClass.trim() : 'All',
-      subjectId: subjectId || null,
-      startDate: req.body.startDate ? new Date(req.body.startDate) : new Date('2026-08-15T00:00:00.000Z'),
-      endDate: req.body.endDate ? new Date(req.body.endDate) : new Date('2026-09-30T23:59:59.000Z'),
+      startDate: req.body.startDate
+        ? new Date(req.body.startDate)
+        : (req.body.date ? new Date(`${req.body.date.split('T')[0]}T00:00:00`) : new Date('2026-08-15T00:00:00.000Z')),
+      endDate: req.body.endDate
+        ? new Date(req.body.endDate)
+        : (req.body.date ? new Date(`${req.body.date.split('T')[0]}T23:59:59.999`) : new Date('2026-09-30T23:59:59.000Z')),
       timing: req.body.timing ? req.body.timing.trim() : '00:10 Hours',
       totalScore: req.body.totalScore ? Number(req.body.totalScore) : (targetCount * 2 || 20),
-      scheduleStatus: req.body.scheduleStatus || 'Ongoing',
+      scheduleStatus: req.body.scheduleStatus || ((req.body.startDate || req.body.date) && new Date(req.body.startDate || `${req.body.date.split('T')[0]}T00:00:00`) > new Date() ? 'Upcoming' : 'Ongoing'),
       bannerUrl: req.body.bannerUrl ? req.body.bannerUrl.trim() : '/img/hindidiwas.png',
     });
 
@@ -460,6 +463,12 @@ const updateQuizSchedule = async (req, res, next) => {
 
     if (startDate !== undefined) quiz.startDate = new Date(startDate);
     if (endDate !== undefined) quiz.endDate = new Date(endDate);
+    if (quiz.startDate && quiz.endDate) {
+      const diffMinutes = Math.max(1, Math.round((new Date(quiz.endDate).getTime() - new Date(quiz.startDate).getTime()) / (1000 * 60)));
+      if (diffMinutes > 0 && diffMinutes <= 1440) {
+        quiz.durationMinutes = diffMinutes;
+      }
+    }
     if (timing !== undefined) quiz.timing = String(timing).trim();
     if (showTiming !== undefined) quiz.showTiming = Boolean(showTiming);
     if (isFeaturedOnPortal !== undefined) quiz.isFeaturedOnPortal = Boolean(isFeaturedOnPortal);
@@ -581,6 +590,9 @@ const updateBatchQuizSchedule = async (req, res, next) => {
       repQuizId = selectedQuizzes[0]._id.toString();
     }
 
+    const diffMs = eDate.getTime() - sDate.getTime();
+    const diffMinutes = Math.max(1, Math.round(diffMs / (1000 * 60)));
+
     // Update each quiz in the batch
     for (const quiz of selectedQuizzes) {
       const qIdStr = quiz._id.toString();
@@ -590,6 +602,9 @@ const updateBatchQuizSchedule = async (req, res, next) => {
       quiz.endDate = eDate;
       quiz.timing = timingVal;
       quiz.showTiming = showTimingVal;
+      quiz.durationMinutes = (req.body.durationMinutes && Number(req.body.durationMinutes) > 0)
+        ? Number(req.body.durationMinutes)
+        : (diffMinutes > 0 && diffMinutes <= 1440) ? diffMinutes : (quiz.durationMinutes || 60);
       quiz.bannerUrl = finalBanner;
       quiz.scheduleBatchId = batchId;
       quiz.batchName = resolvedTitle;
@@ -1023,6 +1038,371 @@ const getQuizAttempts = async (req, res, next) => {
   }
 };
 
+// ─── STUDENT MANAGEMENT ───────────────────────────────────────────────────────
+
+// @desc  Get all registered students with attempt statistics, filtering, search and sorting (admin)
+// @route GET /api/admin/students
+const getAllStudents = async (req, res, next) => {
+  try {
+    const {
+      search,
+      class: studentClass,
+      school,
+      gender,
+      state,
+      quizId,
+      status, // 'all' | 'attempted' | 'not_attempted'
+      completionStatus, // 'Pass' | 'Fail' | 'Not Attempted'
+      sortBy = 'newest',
+      page = 1,
+      limit = 100,
+    } = req.query;
+
+    const filter = {};
+
+    // 1. Class filter
+    if (studentClass && studentClass !== 'all' && studentClass !== '') {
+      let cVal = String(studentClass).trim();
+      if (/^[3-8]$/.test(cVal)) cVal = `Class ${cVal}`;
+      filter.$or = [{ class: cVal }, { className: cVal }];
+    }
+
+    // 2. School filter
+    if (school && school !== 'all' && school.trim()) {
+      filter.schoolName = { $regex: school.trim(), $options: 'i' };
+    }
+
+    // 3. Gender filter
+    if (gender && gender !== 'all' && gender.trim()) {
+      filter.gender = gender.trim();
+    }
+
+    // 4. State filter
+    if (state && state !== 'all' && state.trim()) {
+      filter.state = { $regex: state.trim(), $options: 'i' };
+    }
+
+    // 5. Search (First Name, Last Name, Full Name, Email, School, Class, ID)
+    if (search && search.trim()) {
+      const sTerm = search.trim();
+      const sRegex = { $regex: sTerm, $options: 'i' };
+      const searchOr = [
+        { firstName: sRegex },
+        { lastName: sRegex },
+        { name: sRegex },
+        { email: sRegex },
+        { schoolName: sRegex },
+        { class: sRegex },
+        { className: sRegex },
+        { studentIdentifier: sRegex },
+      ];
+
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, { $or: searchOr }];
+        delete filter.$or;
+      } else {
+        filter.$or = searchOr;
+      }
+    }
+
+    // Fetch all matching registered students from the Student collection (Source of Truth)
+    const rawStudents = await Student.find(filter)
+      .select('-passwordHash -pinHash')
+      .lean();
+
+    if (!rawStudents.length) {
+      return res.status(200).json({
+        success: true,
+        total: 0,
+        page: Number(page),
+        pages: 0,
+        stats: { total: 0, attempted: 0, notAttempted: 0, passed: 0, failed: 0 },
+        students: [],
+      });
+    }
+
+    // Collect IDs for attempt lookup
+    const studentIds = rawStudents.map((s) => s._id);
+    const studentIdentifiers = rawStudents.map((s) => s.studentIdentifier).filter(Boolean);
+
+    // Fetch all attempts for these students
+    const attemptQuery = {
+      $or: [
+        { studentId: { $in: studentIds } },
+        { studentIdentifier: { $in: studentIdentifiers } },
+      ],
+    };
+    if (quizId && quizId !== 'all') {
+      attemptQuery.quizId = quizId;
+    }
+
+    const attempts = await Attempt.find(attemptQuery)
+      .populate({
+        path: 'quizId',
+        select: 'name subjectId numberOfQuestions passingPercentage',
+        populate: { path: 'subjectId', select: 'name' },
+      })
+      .sort({ submittedAt: 1 })
+      .lean();
+
+    // Map attempts to students
+    const attemptsMap = new Map();
+    attempts.forEach((att) => {
+      const sId = att.studentId ? String(att.studentId) : null;
+      const sIdent = att.studentIdentifier ? att.studentIdentifier.toUpperCase() : null;
+
+      if (sId) {
+        if (!attemptsMap.has(sId)) attemptsMap.set(sId, []);
+        attemptsMap.get(sId).push(att);
+      }
+      if (sIdent) {
+        if (!attemptsMap.has(sIdent)) attemptsMap.set(sIdent, []);
+        attemptsMap.get(sIdent).push(att);
+      }
+    });
+
+    // Decorate each student with attempt info & completion timestamps
+    let enrichedStudents = rawStudents.map((student) => {
+      const sIdKey = String(student._id);
+      const sIdentKey = student.studentIdentifier ? student.studentIdentifier.toUpperCase() : null;
+
+      // Combine attempts found by ID or identifier (deduplicated by attempt _id)
+      const listA = attemptsMap.get(sIdKey) || [];
+      const listB = sIdentKey ? attemptsMap.get(sIdentKey) || [] : [];
+      const combinedAttempts = [...listA];
+      listB.forEach((b) => {
+        if (!combinedAttempts.some((a) => String(a._id) === String(b._id))) {
+          combinedAttempts.push(b);
+        }
+      });
+      // Sort combined attempts chronologically by submittedAt
+      combinedAttempts.sort((a, b) => new Date(a.submittedAt || a.createdAt).getTime() - new Date(b.submittedAt || b.createdAt).getTime());
+
+      const totalAttempts = combinedAttempts.length;
+      const latestAttempt = totalAttempts > 0 ? combinedAttempts[totalAttempts - 1] : null;
+      const earliestAttempt = totalAttempts > 0 ? combinedAttempts[0] : null;
+
+      // If a specific quiz filter is active, find attempt for that quiz
+      let specificQuizAttempt = null;
+      if (quizId && quizId !== 'all') {
+        specificQuizAttempt = combinedAttempts.find((a) => String(a.quizId?._id || a.quizId) === String(quizId)) || null;
+      }
+
+      const activeAttempt = specificQuizAttempt || latestAttempt;
+
+      return {
+        _id: student._id,
+        studentIdentifier: student.studentIdentifier,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        name: student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+        email: student.email,
+        mobileNumber: student.mobileNumber || '—',
+        schoolName: student.schoolName,
+        class: student.class || student.className,
+        dateOfBirth: student.dateOfBirth || student.dob,
+        gender: student.gender,
+        state: student.state,
+        address: student.address,
+        pinCode: student.pinCode,
+        previousQuizParticipation: student.previousQuizParticipation,
+        createdAt: student.createdAt,
+        totalAttempts,
+        hasAttempted: totalAttempts > 0,
+        quizStatus: activeAttempt ? (activeAttempt.percentage >= 50 ? 'Passed' : 'Better Luck Next Time') : 'Not Attempted',
+        status: activeAttempt ? (activeAttempt.percentage >= 50 ? 'Passed' : 'Better Luck Next Time') : 'Not Attempted',
+        latestQuizName: activeAttempt?.quizId?.name || (totalAttempts > 0 ? 'Quiz' : '—'),
+        latestQuiz: activeAttempt?.quizId?.name || (totalAttempts > 0 ? 'Quiz' : '—'),
+        latestSubject: activeAttempt?.quizId?.subjectId?.name || '',
+        latestScore: activeAttempt ? `${activeAttempt.score}/${activeAttempt.totalQuestions}` : '—',
+        scoreVal: activeAttempt ? activeAttempt.score : -1,
+        latestPercentage: activeAttempt ? activeAttempt.percentage : null,
+        latestResult: activeAttempt ? activeAttempt.result : null,
+        certificateId: activeAttempt?.certificateId || null,
+        latestAttemptId: activeAttempt?._id || null,
+        completionTime: activeAttempt ? activeAttempt.submittedAt || activeAttempt.createdAt : null,
+        latestCompletionTime: activeAttempt ? activeAttempt.submittedAt || activeAttempt.createdAt : null,
+        earliestCompletionTime: earliestAttempt ? earliestAttempt.submittedAt || earliestAttempt.createdAt : null,
+        allAttempts: combinedAttempts.map((a) => ({
+          _id: a._id,
+          quizId: a.quizId?._id || a.quizId,
+          quizName: a.quizId?.name || 'Quiz',
+          subject: a.quizId?.subjectId?.name || '',
+          score: a.score,
+          totalQuestions: a.totalQuestions,
+          percentage: a.percentage,
+          result: a.result,
+          certificateId: a.certificateId,
+          submittedAt: a.submittedAt || a.createdAt,
+        })),
+      };
+    });
+
+    // 6. Filter by quiz participation status (Attempted vs Not Attempted)
+    if (status === 'attempted') {
+      enrichedStudents = enrichedStudents.filter((s) => s.hasAttempted && (quizId ? s.completionTime !== null : true));
+    } else if (status === 'not_attempted') {
+      enrichedStudents = enrichedStudents.filter((s) => !s.hasAttempted || (quizId ? s.completionTime === null : false));
+    }
+
+    // 7. Filter by Completion / Result status (Pass / Better Luck Next Time / Not Attempted)
+    if (completionStatus) {
+      if (completionStatus === 'Pass' || completionStatus === 'Passed') {
+        enrichedStudents = enrichedStudents.filter((s) => s.quizStatus === 'Pass' || s.quizStatus === 'Passed');
+      } else if (completionStatus === 'Fail' || completionStatus === 'Better Luck Next Time') {
+        enrichedStudents = enrichedStudents.filter((s) => s.quizStatus === 'Better Luck Next Time' || s.quizStatus === 'Fail');
+      } else if (completionStatus === 'Not Attempted') {
+        enrichedStudents = enrichedStudents.filter((s) => s.quizStatus === 'Not Attempted');
+      }
+    }
+
+    // 8. Sorting
+    if (sortBy === 'completed_earliest') {
+      // Students with valid completion time sorted ascending (earliest first). Those without completion at the end.
+      enrichedStudents.sort((a, b) => {
+        if (a.completionTime && b.completionTime) {
+          return new Date(a.completionTime).getTime() - new Date(b.completionTime).getTime();
+        }
+        if (a.completionTime && !b.completionTime) return -1;
+        if (!a.completionTime && b.completionTime) return 1;
+        return a.name.localeCompare(b.name);
+      });
+    } else if (sortBy === 'completed_latest') {
+      enrichedStudents.sort((a, b) => {
+        if (a.completionTime && b.completionTime) {
+          return new Date(b.completionTime).getTime() - new Date(a.completionTime).getTime();
+        }
+        if (a.completionTime && !b.completionTime) return -1;
+        if (!a.completionTime && b.completionTime) return 1;
+        return a.name.localeCompare(b.name);
+      });
+    } else if (sortBy === 'score_high') {
+      enrichedStudents.sort((a, b) => (b.latestPercentage ?? -1) - (a.latestPercentage ?? -1));
+    } else if (sortBy === 'score_low') {
+      enrichedStudents.sort((a, b) => (a.latestPercentage ?? 999) - (b.latestPercentage ?? 999));
+    } else if (sortBy === 'name_asc') {
+      enrichedStudents.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'name_desc') {
+      enrichedStudents.sort((a, b) => b.name.localeCompare(a.name));
+    } else if (sortBy === 'oldest') {
+      enrichedStudents.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    } else {
+      // Default: newest registered first
+      enrichedStudents.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    // Assign dynamic ranks
+    enrichedStudents = enrichedStudents.map((s, index) => ({
+      ...s,
+      rank: s.completionTime ? index + 1 : null,
+    }));
+
+    // Overall stats for summary bar
+    const stats = {
+      total: enrichedStudents.length,
+      attempted: enrichedStudents.filter((s) => s.hasAttempted).length,
+      notAttempted: enrichedStudents.filter((s) => !s.hasAttempted).length,
+      passed: enrichedStudents.filter((s) => s.quizStatus === 'Pass').length,
+      failed: enrichedStudents.filter((s) => s.quizStatus === 'Fail').length,
+    };
+
+    // Pagination
+    const numLimit = Number(limit);
+    const numPage = Number(page);
+    const totalCount = enrichedStudents.length;
+    const startIndex = (numPage - 1) * numLimit;
+    const paginatedStudents = numLimit >= 1000 ? enrichedStudents : enrichedStudents.slice(startIndex, startIndex + numLimit);
+
+    res.status(200).json({
+      success: true,
+      total: totalCount,
+      page: numPage,
+      pages: Math.ceil(totalCount / numLimit) || 1,
+      stats,
+      students: paginatedStudents,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc  Get single student by ID with their complete profile and attempts
+// @route GET /api/admin/students/:id
+const getStudentById = async (req, res, next) => {
+  try {
+    const student = await Student.findById(req.params.id)
+      .select('-passwordHash -pinHash')
+      .lean();
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+
+    const attempts = await Attempt.find({
+      $or: [
+        { studentId: student._id },
+        { studentIdentifier: student.studentIdentifier },
+      ],
+    })
+      .populate({
+        path: 'quizId',
+        select: 'name subjectId numberOfQuestions passingPercentage',
+        populate: { path: 'subjectId', select: 'name' },
+      })
+      .sort({ submittedAt: -1 })
+      .lean();
+
+    const formattedAttempts = attempts.map((a) => ({
+      _id: a._id,
+      quizId: a.quizId?._id || a.quizId,
+      quizName: a.quizId?.name || 'Quiz',
+      subject: a.quizId?.subjectId?.name || '',
+      score: a.score,
+      totalQuestions: a.totalQuestions,
+      percentage: a.percentage,
+      result: a.result,
+      certificateId: a.certificateId,
+      submittedAt: a.submittedAt || a.createdAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      student,
+      attempts: formattedAttempts,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc  Delete student by ID and all associated attempts
+// @route DELETE /api/admin/students/:id
+const deleteStudent = async (req, res, next) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+
+    // Delete all attempts associated with this student
+    const deleteAttemptsResult = await Attempt.deleteMany({
+      $or: [
+        { studentId: student._id },
+        { studentIdentifier: student.studentIdentifier },
+      ],
+    });
+
+    // Delete student document
+    await Student.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: `Student "${student.name || student.firstName || 'Student'}" and ${deleteAttemptsResult.deletedCount} associated attempt(s) deleted successfully.`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAdminQuizzes,
@@ -1041,6 +1421,9 @@ module.exports = {
   getAllAttempts,
   getAttemptById,
   getQuizAttempts,
+  getAllStudents,
+  getStudentById,
+  deleteStudent,
 };
 
 

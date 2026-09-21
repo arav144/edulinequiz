@@ -1,280 +1,92 @@
-import React, { useState, useEffect } from 'react';
-import {
-  GraduationCap,
-  Building2,
-  Award,
-  ChevronDown,
-  ArrowLeft,
-} from 'lucide-react';
-import { IQuizSummary, Language, IClassLevel } from './types';
-import { formatQuizTitle } from './quizUtils';
+'use client';
+
+import React from 'react';
+import { IStudentProfile } from './types';
+import { UserCheck, ChevronDown } from 'lucide-react';
 
 interface HeroSectionProps {
-  t: any;
-  lang: Language;
-  isHindiMode: boolean;
-  studentName: string;
-  setStudentName: (v: string) => void;
-  className: string;
-  setClassName: (v: string) => void;
-  classes?: IClassLevel[];
-  section: string;
-  setSection: (v: string) => void;
-  studentId: string;
-  setStudentId: (v: string) => void;
-  selectedSubjectName: string;
-  setSelectedSubjectName: (v: string) => void;
-  schoolName: string;
-  setSchoolName: (v: string) => void;
-  availableSubjects: string[];
-  currentSubjectQuiz: IQuizSummary | null;
-  loading: boolean;
-  onBack?: () => void;
-  onSubmit: (e: React.FormEvent) => void;
+  studentProfile?: IStudentProfile | null;
+  onOpenRegister: () => void;
+  onRegistrationSuccess: (profile: IStudentProfile) => void;
+  onScrollToQuizzes: () => void;
 }
 
-export const HeroSection: React.FC<HeroSectionProps> = ({
-  t,
-  lang,
-  studentName,
-  setStudentName,
-  className,
-  setClassName,
-  classes = [],
-  schoolName,
-  setSchoolName,
-  currentSubjectQuiz,
-  loading,
-  onBack,
-  onSubmit,
+const HeroSectionComponent: React.FC<HeroSectionProps> = ({
+  studentProfile,
+  onOpenRegister,
+  onScrollToQuizzes,
 }) => {
-  // Mobile 3-Second Poster Splash State (< 1024px)
-  const [showMobileSplash, setShowMobileSplash] = useState<boolean>(true);
-  const [splashCountdown, setSplashCountdown] = useState<number>(3);
-
-  useEffect(() => {
-    // If desktop (>= 1024px), skip splash immediately
-    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-      setShowMobileSplash(false);
-      return;
-    }
-
-    // 3-second timer
-    const interval = setInterval(() => {
-      setSplashCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setShowMobileSplash(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center py-4">
-      {/* MOBILE 3-SECOND HINDI DIWAS SPLASH OVERLAY */}
-      {showMobileSplash && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-gradient-to-b from-amber-50 via-white to-amber-100/90 backdrop-blur-xl flex flex-col items-center justify-between p-5 sm:p-8 animate-fadeIn select-none">
-          {/* Top Branding */}
-          <div className="pt-2 flex flex-col items-center gap-1">
-            <img
-              src="/img/Edulinenew.jpg"
-              alt="Eduline Publishers"
-              className="h-10 sm:h-12 w-auto object-contain drop-shadow-sm"
-            />
-            <span className="text-[11px] font-bold text-amber-800 tracking-wider font-hindi uppercase">
-              हिंदी दिवस विशेष प्रतियोगिता
-            </span>
-          </div>
-
-          {/* Center: Hindidiwas Poster */}
-          <div className="relative w-full max-w-sm flex items-center justify-center my-auto py-2">
-            <img
-              src="/img/hindidiwas.png"
-              alt="हिंदी दिवस पोस्टर"
-              className="w-full h-auto max-h-[65vh] object-contain drop-shadow-2xl animate-scaleIn select-none pointer-events-none"
-            />
-          </div>
-
-          {/* Bottom Countdown & Action */}
-          <div className="w-full max-w-xs space-y-3 text-center pb-3">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-600 font-hindi">
-                <span>पंजीकरण प्रारंभ हो रहा है...</span>
-                <span className="font-mono text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-black">
-                  {splashCountdown}s
-                </span>
+  /* ── Logged-in welcome strip ────────────────────────── */
+  if (studentProfile) {
+    return (
+      <div className="w-full max-w-2xl mx-auto px-4 py-3">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-emerald-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-black text-base shrink-0">
+                {(studentProfile.firstName || '?')[0].toUpperCase()}
               </div>
-              {/* Progress Bar */}
-              <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden shadow-inner">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 rounded-full transition-all duration-1000 ease-linear"
-                  style={{ width: `${((4 - splashCountdown) / 3) * 100}%` }}
-                />
+              <div>
+                <p className="text-emerald-100 text-[11px] font-medium">Welcome back!</p>
+                <p className="text-white font-black text-sm leading-tight">
+                  {studentProfile.firstName} {studentProfile.lastName}
+                </p>
               </div>
             </div>
-
-            {/* Skip Button */}
+            <div className="text-right">
+              <div className="text-[10px] text-emerald-100 font-medium">
+                {studentProfile.className || `Class ${studentProfile.class}`}
+              </div>
+              <div className="text-[10px] text-emerald-200 truncate max-w-[140px]">
+                {studentProfile.schoolName}
+              </div>
+            </div>
+          </div>
+          <div className="px-5 py-3 flex items-center justify-between">
+            <p className="text-xs text-slate-500">
+              Scroll down to view and attempt your available quizzes.
+            </p>
             <button
-              type="button"
-              onClick={() => setShowMobileSplash(false)}
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 active:scale-95 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              onClick={onScrollToQuizzes}
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#194c5f] hover:text-[#2d7995] cursor-pointer"
             >
-              <span>सीधे आगे बढ़ें ➔</span>
+              View Quizzes <ChevronDown className="w-3.5 h-3.5" />
             </button>
           </div>
-        </div>
-      )}
-      {/* LEFT COLUMN: REGISTRATION FORM CARD */}
-      <div className="lg:col-span-5 w-full">
-        <div className="bg-white/98 backdrop-blur-2xl rounded-[32px] p-6 sm:p-8 shadow-xl hover:shadow-2xl transition-shadow duration-300 text-slate-800 border border-slate-100/90 relative overflow-hidden max-w-md mx-auto">
-          {/* Back to Competitions Button */}
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-950 mb-3 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>{lang === 'hi' ? '← प्रतियोगिताएं देखें' : '← Back to Competitions'}</span>
-            </button>
-          )}
-
-          {/* Top Header Icon */}
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-indigo-50/90 to-indigo-100/80 border border-indigo-200/60 text-indigo-600 flex items-center justify-center mx-auto mb-3.5 shadow-sm ring-4 ring-indigo-50/50">
-            <GraduationCap className="w-8 h-8" />
-          </div>
-
-          <div className="text-center space-y-1 mb-6">
-            <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-hindi inline-block mb-1 shadow-xs">
-              {formatQuizTitle(currentSubjectQuiz?.name, className)}
-            </span>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-hindi">
-              {t.formTitle}
-            </h2>
-            <p className="text-xs sm:text-[13px] text-slate-500 font-medium font-hindi">
-              {t.formSubtitle}
-            </p>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={onSubmit} className="space-y-4">
-            {/* Student Name */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 font-hindi">
-                {t.nameLabel}
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-600 transition-colors">
-                  <GraduationCap className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  required
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
-                  placeholder={t.namePlaceholder}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 text-xs sm:text-sm font-semibold text-slate-900 transition outline-none bg-slate-50/40 focus:bg-white"
-                />
-              </div>
-            </div>
-
-            {/* Class Dropdown */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 font-hindi">
-                {t.classLabel}
-              </label>
-              <div className="relative group">
-                <select
-                  required
-                  value={className}
-                  onChange={(e) => setClassName(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 text-xs sm:text-sm font-semibold transition outline-none bg-slate-50/40 focus:bg-white cursor-pointer appearance-none pr-10 ${
-                    !className ? 'text-slate-400' : 'text-slate-900'
-                  }`}
-                >
-                  <option value="" disabled>
-                    {lang === 'hi' ? '-- अपनी कक्षा चुनें --' : '-- Select Your Class --'}
-                  </option>
-                  {classes && classes.length > 0 ? (
-                    classes.map((c) => (
-                      <option key={c._id || c.name} value={c.name} className="text-slate-900">
-                        {lang === 'hi' ? (c.displayHindi || c.name) : c.name}
-                      </option>
-                    ))
-                  ) : (
-                    [3, 4, 5, 6, 7, 8].map((c) => (
-                      <option key={c} value={`Class ${c}`} className="text-slate-900">
-                        {lang === 'hi' ? `कक्षा ${c}` : `Class ${c}`}
-                      </option>
-                    ))
-                  )}
-                </select>
-                <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-600 transition-colors">
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-              </div>
-            </div>
-
-            {/* School / Institution Name */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 font-hindi">
-                {t.schoolLabel}
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-600 transition-colors">
-                  <Building2 className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  required
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value)}
-                  placeholder={t.schoolPlaceholder}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 text-xs sm:text-sm font-semibold text-slate-900 transition outline-none bg-slate-50/40 focus:bg-white"
-                />
-              </div>
-            </div>
-
-            {/* Action CTA Button */}
-            <div className="pt-2 flex justify-center">
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  backgroundImage: "url('/img/Shape-4.png')",
-                  backgroundSize: '100% 100%',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'center',
-                }}
-                className="w-full h-14 max-w-[340px] py-3.5 px-6 text-white font-bold text-base sm:text-lg tracking-wide transition-all duration-200 hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer select-none drop-shadow-md border-0 outline-none"
-              >
-                <span>{loading ? (lang === 'hi' ? 'आगे बढ़ रहे हैं...' : 'Proceeding...') : t.startQuizBtn}</span>
-              </button>
-            </div>
-
-            <p className="text-xs text-center text-slate-500 font-medium pt-1.5 flex items-center justify-center gap-1.5 font-hindi">
-              <Award className="w-4 h-4 text-amber-500 flex-shrink-0" />
-              <span>{t.formFooterTag}</span>
-            </p>
-          </form>
         </div>
       </div>
+    );
+  }
 
-      {/* RIGHT COLUMN: HINDI DIWAS POSTER IMAGE (hidden on mobile, visible on lg screens) */}
-      <div className="hidden lg:flex lg:col-span-7 items-center justify-center w-full px-2 sm:px-4 py-2">
-        <div className="relative w-full max-w-md sm:max-w-lg lg:max-w-xl flex items-center justify-center">
-          <img
-            src="/img/hindidiwas.png"
-            alt="हिंदी दिवस"
-            className="w-full h-auto max-h-[580px] object-contain drop-shadow-2xl select-none pointer-events-none"
-          />
+  /* ── Guest welcome banner ───────────────────────────── */
+  return (
+    <div className="w-full max-w-2xl mx-auto px-4 py-3 animate-fadeIn">
+      <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-[#2d7995]/25 shadow-sm p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-[#2d7995]/10 text-[#2d7995] flex items-center justify-center shrink-0">
+            <UserCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-black text-slate-800 tracking-tight">
+              Welcome to the Eduline Quiz Portal!
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Create an account to participate in online quizzes and earn certificates.
+            </p>
+          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={onOpenRegister}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#2d7995] to-[#1f576c] hover:from-[#266881] hover:to-[#1a4a5b] text-white text-xs font-bold transition shadow-sm cursor-pointer shrink-0 whitespace-nowrap"
+        >
+          <span>Click here to Register</span>
+        </button>
       </div>
     </div>
   );
 };
+
+export const HeroSection = React.memo(HeroSectionComponent);
+export default HeroSection;

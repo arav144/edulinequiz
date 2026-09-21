@@ -31,7 +31,7 @@ const quizSchema = new mongoose.Schema(
     },
     timePerQuestion: {
       type: Number,
-      default: 30,
+      default: 40,
       min: [5, 'Time per question must be at least 5 seconds'],
       max: [600, 'Time per question cannot exceed 600 seconds'],
     },
@@ -54,6 +54,11 @@ const quizSchema = new mongoose.Schema(
       type: String,
       enum: ['en', 'hi'],
       default: 'en',
+    },
+    classes: {
+      type: [String],
+      default: [],
+      index: true,
     },
     targetClass: {
       type: String,

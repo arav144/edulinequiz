@@ -698,3 +698,90 @@ th {
 .object-cover {
   object-fit: cover;
 }
+
+/* ─── Professional Enterprise Students Dashboard ──────────────────── */
+.students-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.875rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 1024px) {
+  .students-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .students-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.students-stat-card {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(51, 65, 85, 0.7);
+  border-radius: 0.875rem;
+  padding: 1rem 1.125rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+.students-stat-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+}
+.students-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+}
+.students-stat-card.stat-indigo::before { background: #6366f1; }
+.students-stat-card.stat-emerald::before { background: #10b981; }
+.students-stat-card.stat-amber::before { background: #f59e0b; }
+.students-stat-card.stat-teal::before { background: #14b8a6; }
+.students-stat-card.stat-rose::before { background: #f43f5e; }
+
+.students-filter-box {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(51, 65, 85, 0.7);
+  border-radius: 1rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.students-filter-row-1 {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr 1.2fr 1.4fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.students-filter-row-2 {
+  display: grid;
+  grid-template-columns: 1.3fr 1.1fr 0.9fr 1.2fr 130px;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+@media (max-width: 1024px) {
+  .students-filter-row-1 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .students-filter-row-2 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .students-filter-row-1,
+  .students-filter-row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+

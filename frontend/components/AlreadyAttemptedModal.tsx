@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { AlertCircle, Award, CheckCircle2, X } from 'lucide-react';
-import { Language } from './types';
+import { Language, getScoreRemark } from './types';
 import { ISavedAttempt } from './attemptTracker';
 import { formatQuizTitle } from './quizUtils';
 
@@ -81,15 +81,15 @@ export const AlreadyAttemptedModal: React.FC<AlreadyAttemptedModalProps> = ({
                 </strong>
               </div>
             )}
-            {savedAttempt.result && (
+            {savedAttempt.percentage !== undefined && (
               <div className="flex justify-between items-center text-slate-500 font-semibold text-[11px]">
-                <span>{isHindi ? 'परिणाम (Result):' : 'Result:'}</span>
+                <span>{isHindi ? 'स्थिति / रिमार्क:' : 'Performance Remark:'}</span>
                 <strong
                   className={`font-black ${
-                    savedAttempt.result === 'Pass' ? 'text-emerald-700' : 'text-rose-700'
+                    (savedAttempt.percentage ?? 0) >= 50 ? 'text-emerald-700' : 'text-amber-700'
                   }`}
                 >
-                  {savedAttempt.result === 'Pass' ? (isHindi ? 'उत्तीर्ण (Pass)' : 'Pass') : (isHindi ? 'अनुत्तीर्ण (Fail)' : 'Fail')}
+                  {getScoreRemark(savedAttempt.percentage ?? 0, isHindi)}
                 </strong>
               </div>
             )}

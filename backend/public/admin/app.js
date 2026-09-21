@@ -15,6 +15,29 @@ let allClasses = [];
 let builderQuestions = [];
 
 // ─── API Base ────────────────────────────────────────────────────────────────
+const setApiStatus = (connected) => {
+  const dot = document.getElementById('apiStatusDot');
+  if (!dot) return;
+  if (connected) {
+    dot.className = 'w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse shadow-xs shadow-emerald-400/50';
+    dot.title = 'Connected';
+  } else {
+    dot.className = 'w-2.5 h-2.5 bg-rose-500 rounded-full shadow-xs shadow-rose-500/50';
+    dot.title = 'Disconnected';
+  }
+};
+
+async function checkApiConnection() {
+  try {
+    const res = await fetch('/api/health');
+    setApiStatus(res.ok);
+  } catch {
+    setApiStatus(false);
+  }
+}
+setInterval(checkApiConnection, 30000);
+checkApiConnection();
+
 const API = async (method, endpoint, body = null, isFormData = false) => {
   const headers = { Authorization: `Bearer ${authToken}` };
   if (!isFormData && body) headers['Content-Type'] = 'application/json';
@@ -22,18 +45,27 @@ const API = async (method, endpoint, body = null, isFormData = false) => {
   const opts = { method, headers };
   if (body) opts.body = isFormData ? body : JSON.stringify(body);
 
-  const res = await fetch(endpoint, opts);
-  if (res.status === 401) { logout(); return; }
+  try {
+    const res = await fetch(endpoint, opts);
+    if (res.status === 401) { logout(); return; }
 
-  const ct = res.headers.get('content-type') || '';
-  if (ct.includes('application/json')) {
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Request failed');
-    return data;
+    setApiStatus(true);
+
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Request failed');
+      return data;
+    }
+    // For binary (PDF) responses, return the raw response
+    if (!res.ok) throw new Error('Download failed');
+    return res;
+  } catch (err) {
+    if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
+      setApiStatus(false);
+    }
+    throw err;
   }
-  // For binary (PDF) responses, return the raw response
-  if (!res.ok) throw new Error('Download failed');
-  return res;
 };
 
 // ─── Toast ───────────────────────────────────────────────────────────────────
@@ -43,8 +75,13 @@ function toast(msg, type = 'success') {
   const msgEl = document.getElementById('toastMsg');
   const colors = { success: 'bg-emerald-600 text-white', error: 'bg-rose-600 text-white', info: 'bg-indigo-600 text-white', warn: 'bg-amber-500 text-white' };
   msgEl.className = `px-5 py-3.5 rounded-2xl text-sm font-semibold shadow-2xl flex items-center gap-2.5 fade-in ${colors[type] || colors.info}`;
-  const icons = { success: '✓', error: '✕', info: 'ℹ', warn: '⚠' };
-  msgEl.innerHTML = `<span>${icons[type] || '·'}</span><span>${msg}</span>`;
+  const icons = {
+    success: '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>',
+    error: '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>',
+    info: '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+    warn: '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>'
+  };
+  msgEl.innerHTML = `${icons[type] || ''}<span>${msg}</span>`;
   el.classList.remove('hidden');
   clearTimeout(toastTimeout);
   toastTimeout = setTimeout(() => el.classList.add('hidden'), 4000);
@@ -83,14 +120,20 @@ function fmtDateTime(d) {
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
 function showSection(name) {
-  ['dashboard', 'classes', 'quizzes', 'schedule', 'questions', 'subjects', 'results'].forEach(s => {
+  if (name === 'results') name = 'students';
+
+  ['dashboard', 'classes', 'quizzes', 'schedule', 'questions', 'subjects', 'students', 'results', 'theme'].forEach(s => {
     const el = document.getElementById(`section-${s}`);
     const nav = document.getElementById(`nav-${s}`);
     if (el) el.classList.add('hidden');
     if (nav) nav.classList.remove('active');
   });
-  document.getElementById(`section-${name}`).classList.remove('hidden');
-  document.getElementById(`nav-${name}`).classList.add('active');
+
+  const activeSectionEl = document.getElementById(`section-${name}`) || document.getElementById('section-students');
+  const activeNavEl = document.getElementById(`nav-${name}`) || document.getElementById('nav-students');
+  if (activeSectionEl) activeSectionEl.classList.remove('hidden');
+  if (activeNavEl) activeNavEl.classList.add('active');
+
   document.getElementById('pageTitle').textContent = {
     dashboard: 'Dashboard',
     classes: 'Class Management',
@@ -98,8 +141,11 @@ function showSection(name) {
     schedule: 'Quiz Scheduling & Portal Visibility',
     questions: 'Question Management',
     subjects: 'Subject Management',
-    results: 'Student Results'
-  }[name];
+    students: 'Students Management',
+    results: 'Students Management',
+    theme: 'Theme & Examination Branding Settings',
+  }[name] || 'Admin Portal';
+
   currentSection = name;
   if (name === 'dashboard') loadDashboard();
   if (name === 'classes') loadClasses();
@@ -110,7 +156,8 @@ function showSection(name) {
   }
   if (name === 'questions') loadQuestions();
   if (name === 'subjects') loadSubjects();
-  if (name === 'results') loadResults();
+  if (name === 'students' || name === 'results') loadStudents();
+  if (name === 'theme') loadThemeSettings();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -180,17 +227,30 @@ async function loadDashboard() {
     const data = await API('GET', '/api/admin/stats');
     const { stats, recentAttempts } = data;
 
+    const svgIcons = {
+      users: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>',
+      clipboard: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>',
+      check: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+      edit: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>',
+      help: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+      layers: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>',
+      bolt: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>',
+      chart: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>',
+      trophy: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>',
+      shield: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>'
+    };
+
     document.getElementById('statsGrid').innerHTML = `
-      ${statCard('Total Students', stats.totalStudents, '👤', 'indigo')}
-      ${statCard('Total Quizzes', stats.totalQuizzes, '📋', 'purple')}
-      ${statCard('Published', stats.publishedQuizzes, '✅', 'emerald')}
-      ${statCard('Draft', stats.draftQuizzes, '📝', 'amber')}
-      ${statCard('Total Questions', stats.totalQuestions, '❓', 'sky')}
-      ${statCard('Total Attempts', stats.totalAttempts, '🎯', 'violet')}
-      ${statCard("Today's Attempts", stats.todayAttempts, '⚡', 'rose')}
-      ${statCard('Avg Score', stats.avgScore + '%', '📊', 'teal')}
-      ${statCard('Highest Score', stats.highestScore + '%', '🏆', 'yellow')}
-      ${statCard('Pass Rate', stats.passRate + '%', '🎓', 'green')}
+      ${statCard('Total Students', stats.totalStudents, svgIcons.users, 'indigo')}
+      ${statCard('Total Quizzes', stats.totalQuizzes, svgIcons.clipboard, 'purple')}
+      ${statCard('Published', stats.publishedQuizzes, svgIcons.check, 'emerald')}
+      ${statCard('Draft', stats.draftQuizzes, svgIcons.edit, 'amber')}
+      ${statCard('Total Questions', stats.totalQuestions, svgIcons.help, 'sky')}
+      ${statCard('Total Attempts', stats.totalAttempts, svgIcons.layers, 'violet')}
+      ${statCard("Today's Attempts", stats.todayAttempts, svgIcons.bolt, 'rose')}
+      ${statCard('Avg Score', stats.avgScore + '%', svgIcons.chart, 'teal')}
+      ${statCard('Highest Score', stats.highestScore + '%', svgIcons.trophy, 'yellow')}
+      ${statCard('Pass Rate', stats.passRate + '%', svgIcons.shield, 'green')}
     `;
 
     document.getElementById('recentAttemptsTable').innerHTML = recentAttempts && recentAttempts.length
@@ -205,9 +265,15 @@ async function loadDashboard() {
           <td class="py-3 pr-4"><span class="${att.result === 'Pass' ? 'badge-pass' : 'badge-fail'}">${att.result || '—'}</span></td>
           <td class="py-3 pr-4 text-slate-400 text-xs">${fmtDateTime(att.submittedAt)}</td>
           <td class="py-3">
-            <div class="flex gap-1">
-              <button onclick="downloadPdf('${att._id}','pdf','${esc(att.studentIdentifier)}')" class="btn-sm bg-slate-700 hover:bg-slate-600 text-slate-200" title="Download Result">📄</button>
-              <button onclick="downloadPdf('${att._id}','certificate','${esc(att.studentIdentifier)}')" class="btn-sm bg-indigo-700 hover:bg-indigo-600 text-white" title="Download Certificate">🏆</button>
+            <div class="flex gap-1.5">
+              <button onclick="downloadPdf('${att._id}','pdf','${esc(att.studentIdentifier)}')" class="btn-sm bg-slate-700 hover:bg-slate-600 text-slate-200 flex items-center gap-1" title="Download Result">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <span>Result</span>
+              </button>
+              <button onclick="downloadPdf('${att._id}','certificate','${esc(att.studentIdentifier)}')" class="btn-sm bg-indigo-700 hover:bg-indigo-600 text-white flex items-center gap-1" title="Download Certificate">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
+                <span>Cert</span>
+              </button>
             </div>
           </td>
         </tr>`).join('')
@@ -261,16 +327,16 @@ function renderQuizzes() {
           <div class="flex items-center gap-3 mb-1.5">
             <h3 class="text-base font-bold text-white truncate">${esc(q.name)}</h3>
             <span class="${statusBadge}">${q.status}</span>
-            ${q.targetClass && q.targetClass !== 'All' ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">🎯 ${esc(q.targetClass)}</span>` : '<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-700 text-slate-300">All Classes</span>'}
+            ${q.targetClass && q.targetClass !== 'All' ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">${esc(q.targetClass)}</span>` : '<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-700 text-slate-300">All Classes</span>'}
             ${q.subject ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">${esc(q.subject)}</span>` : ''}
           </div>
           <div class="flex flex-wrap gap-4 text-xs text-slate-400 mb-3">
-            <span>❓ ${q.numberOfQuestions} questions required</span>
-            <span>🌐 ${q.language === 'hi' ? 'Hindi (हिंदी)' : 'English'}</span>
-            <span>⏱️ ${q.timePerQuestion || 30}s / question</span>
-            <span>🎯 Passing: ${q.passingPercentage || 50}%</span>
-            <span>👥 ${q.attemptCount || 0} student attempts</span>
-            <span>📅 Created: ${fmtDate(q.createdAt)}</span>
+            <span>${q.numberOfQuestions} questions required</span>
+            <span>${q.language === 'hi' ? 'Hindi' : 'English'}</span>
+            <span>${q.timePerQuestion || 30}s / question</span>
+            <span>Passing: ${q.passingPercentage || 50}%</span>
+            <span>${q.attemptCount || 0} attempts</span>
+            <span>Created: ${fmtDate(q.createdAt)}</span>
           </div>
           <div>
             <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
@@ -278,7 +344,7 @@ function renderQuizzes() {
               <span>${pct}%</span>
             </div>
             <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-            ${!q.isReadyToPublish && q.status === 'Draft' ? `<p class="text-amber-400 text-xs mt-1">⚠ Need ${target - quota} more question${target - quota !== 1 ? 's' : ''} to publish</p>` : ''}
+            ${!q.isReadyToPublish && q.status === 'Draft' ? `<p class="text-amber-400 text-xs mt-1 flex items-center gap-1"><svg class="w-3.5 h-3.5 inline shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg><span>Need ${target - quota} more question${target - quota !== 1 ? 's' : ''} to publish</span></p>` : ''}
           </div>
         </div>
         <div class="flex flex-col sm:flex-row items-center gap-2 flex-shrink-0">
@@ -340,7 +406,7 @@ async function openQuizModal(quiz = null) {
   const currentBanner = isEdit && fullQuiz.bannerUrl ? fullQuiz.bannerUrl : '/img/hindidiwas.png';
   if (elBanner) elBanner.value = currentBanner;
   if (elPreset) {
-    if (['/img/hindidiwas.png', '/admin/Edulinenew.jpg'].includes(currentBanner)) {
+    if (['/img/hindidiwas.png', '/admin/Edulinenew.png'].includes(currentBanner)) {
       elPreset.value = currentBanner;
     } else {
       elPreset.value = 'custom';
@@ -505,8 +571,8 @@ function renderBuilderQuestions() {
           </span>
           <span class="font-bold text-sm text-white truncate">${esc(titleSnippet)}</span>
           ${q.correctAnswer ? `<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md text-[11px] font-bold">Ans: ${q.correctAnswer}</span>` : ''}
-          ${q.imageUrl ? `<span class="text-[11px] text-amber-300">🖼</span>` : ''}
-          ${q.audioUrl ? `<span class="text-[11px] text-purple-300">🔊</span>` : ''}
+          ${q.imageUrl ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-500/10 text-[10px] text-amber-300 font-semibold gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Img</span>` : ''}
+          ${q.audioUrl ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-500/10 text-[10px] text-purple-300 font-semibold gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M9 19V6l12-3v13"/></svg>Aud</span>` : ''}
         </div>
 
         <div class="flex items-center gap-2 flex-shrink-0" onclick="event.stopPropagation()">
@@ -532,7 +598,10 @@ function renderBuilderQuestions() {
           <!-- Image -->
           <div class="bg-slate-900/40 p-3.5 rounded-xl border border-slate-700/60">
             <label class="form-label text-slate-400 mb-1.5 flex items-center justify-between">
-              <span>🖼 Question Image (Optional)</span>
+              <span class="flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Question Image (Optional)
+              </span>
               ${q.imageUrl ? `<button type="button" onclick="removeBuilderImage(${idx})" class="text-[11px] text-rose-400 hover:underline">Remove</button>` : ''}
             </label>
             <input type="file" accept="image/*" class="hidden q-img-file" id="qImgFile_${idx}" onchange="handleBuilderImageUpload(event, ${idx})">
@@ -555,7 +624,10 @@ function renderBuilderQuestions() {
           <!-- Audio -->
           <div class="bg-slate-900/40 p-3.5 rounded-xl border border-slate-700/60">
             <label class="form-label text-slate-400 mb-1.5 flex items-center justify-between">
-              <span>🔊 Question Audio (Optional)</span>
+              <span class="flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M9 19V6l12-3v13"/></svg>
+                Question Audio (Optional)
+              </span>
               ${q.audioUrl ? `<button type="button" onclick="removeBuilderAudio(${idx})" class="text-[11px] text-rose-400 hover:underline">Remove</button>` : ''}
             </label>
             <input type="file" accept="audio/*" class="hidden q-aud-file" id="qAudFile_${idx}" onchange="handleBuilderAudioUpload(event, ${idx})">
@@ -1206,11 +1278,9 @@ function updateSelectedCountUI() {
     const match = allQuizzes.find((q) => q._id === firstId);
     if (match) {
       const cleanBase = (match.name || '')
-        .replace(/\s*[-–—]\s*(कक्षा|Class)\s*\d+/i, '')
-        .replace(/हिंदी दिवस क्विज़/g, 'हिंदी दिवस प्रतियोगिता')
-        .replace(/क्विज़/g, 'प्रतियोगिता')
+        .replace(/\s*[-–—]\s*(Class|Grade|Kaksha)\s*\d+/i, '')
         .trim();
-      titleInput.placeholder = cleanBase || 'e.g. हिंदी दिवस प्रतियोगिता';
+      titleInput.placeholder = cleanBase || 'e.g. Gandhi Jayanti Special Quiz';
       if (!titleInput.value) {
         titleInput.value = cleanBase;
       }
@@ -1223,6 +1293,31 @@ function removeSelectedQuiz(id) {
   const cb = document.querySelector(`.sched-quiz-cb[value="${id}"]`);
   if (cb) cb.checked = false;
   updateSelectedCountUI();
+}
+
+function autoCalculateScheduleTiming() {
+  const startVal = document.getElementById('bulkStartDate')?.value;
+  const endVal = document.getElementById('bulkEndDate')?.value;
+  const timingInput = document.getElementById('bulkTimingText');
+  if (!startVal || !endVal || !timingInput) return;
+
+  const s = new Date(startVal);
+  const e = new Date(endVal);
+  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) return;
+
+  const diffMs = e.getTime() - s.getTime();
+  const diffMins = Math.round(diffMs / (1000 * 60));
+
+  const formatTime12 = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  if (diffMins <= 1440) {
+    const timeRange = `${formatTime12(s)} – ${formatTime12(e)}`;
+    const durStr = diffMins % 60 === 0 ? `${diffMins / 60} Hr` : `${(diffMins / 60).toFixed(1)} Hr`;
+    timingInput.value = `${timeRange} (${durStr})`;
+  } else {
+    const days = Math.round(diffMins / 1440);
+    timingInput.value = `${days} Days Window`;
+  }
 }
 
 async function applyBatchSchedule() {
@@ -1262,6 +1357,9 @@ async function applyBatchSchedule() {
     return;
   }
 
+  const diffMs = endDate.getTime() - startDate.getTime();
+  const diffMinutes = Math.max(1, Math.round(diffMs / (1000 * 60)));
+
   const origBtnText = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = 'Applying Schedule…';
@@ -1274,6 +1372,7 @@ async function applyBatchSchedule() {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       timing: timingVal || '00:10 Hours',
+      durationMinutes: diffMinutes,
       showTiming,
       isFeaturedOnPortal: showOnPortal,
       bannerUrl: bannerUrl || '/img/hindidiwas.png',
@@ -1313,7 +1412,7 @@ async function loadScheduledBatches() {
     container.innerHTML = batches.map((b) => {
       const sDate = b.startDate ? new Date(b.startDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Immediate';
       const eDate = b.endDate ? new Date(b.endDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'No Expiry';
-      
+
       let badgeCls = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
       if (b.scheduleStatus === 'Past') badgeCls = 'bg-slate-700 text-slate-300 border-slate-600';
       if (b.scheduleStatus === 'Upcoming') badgeCls = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
@@ -1333,7 +1432,7 @@ async function loadScheduledBatches() {
                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${badgeCls}">${b.scheduleStatus}</span>
               </div>
               <p class="text-[11px] text-emerald-400 font-medium flex items-center gap-1.5 mb-1.5">
-                <span>⭐ 1 Showcase Card on Portal</span>
+                <span class="inline-flex items-center gap-1"><svg class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>1 Showcase Card on Portal</span>
                 <span class="text-slate-500">·</span>
                 <span class="text-slate-300">${b.quizCount} Class Quiz${b.quizCount > 1 ? 'zes' : ''}</span>
               </p>
@@ -1349,11 +1448,13 @@ async function loadScheduledBatches() {
               <div><span class="text-slate-500 font-medium">Timing:</span> <span class="text-amber-300 font-medium">${esc(b.timing)}</span></div>
             </div>
             <div class="flex items-center gap-2 self-end sm:self-auto shrink-0">
-              <button onclick="editScheduledBatch('${esc(b.batchId)}')" class="btn-secondary text-xs py-1.5 px-2.5 flex items-center gap-1" title="Load into scheduler">
-                ✏️ Edit
+              <button onclick="editScheduledBatch('${esc(b.batchId)}')" class="btn-secondary text-xs py-1.5 px-2.5 flex items-center gap-1.5" title="Load into scheduler">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                <span>Edit</span>
               </button>
-              <button onclick="deleteScheduledBatch('${esc(b.batchId)}')" class="btn-danger text-xs py-1.5 px-2.5 flex items-center gap-1" title="Unpublish batch">
-                🗑️ Unpublish
+              <button onclick="deleteScheduledBatch('${esc(b.batchId)}')" class="btn-danger text-xs py-1.5 px-2.5 flex items-center gap-1.5" title="Unpublish batch">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span>Unpublish</span>
               </button>
             </div>
           </div>
@@ -1411,7 +1512,7 @@ async function editScheduledBatch(batchId) {
     // Select the batch quizzes
     selectedQuizIds.clear();
     (batch.quizzes || []).forEach((q) => selectedQuizIds.add(q._id));
-    
+
     // Check all corresponding checkboxes
     const cbs = document.querySelectorAll('.sched-quiz-cb');
     cbs.forEach((cb) => {
@@ -1459,13 +1560,13 @@ async function loadQuestions() {
               <div class="flex flex-wrap gap-2 mt-2 text-xs text-slate-500">
                 ${q.quizId ? `<span class="px-2 py-0.5 bg-slate-700 rounded-md text-slate-300 font-medium">${esc(q.quizId.name || '')}</span>` : ''}
                 ${q.subjectId ? `<span class="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 rounded-md font-semibold">${esc(q.subjectId.name || '')}</span>` : ''}
-                <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md font-bold">✓ Ans: ${q.correctAnswer}</span>
-                ${q.imageUrl ? `<span class="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-md">🖼 Image</span>` : ''}
-                ${q.audioUrl ? `<span class="px-2 py-0.5 bg-purple-500/10 text-purple-400 rounded-md">🔊 Audio</span>` : ''}
+                <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md font-bold">Ans: ${q.correctAnswer}</span>
+                ${q.imageUrl ? `<span class="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-md inline-flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Image</span>` : ''}
+                ${q.audioUrl ? `<span class="px-2 py-0.5 bg-purple-500/10 text-purple-400 rounded-md inline-flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M9 19V6l12-3v13"/></svg>Audio</span>` : ''}
               </div>
             </div>
             <div class="flex gap-1.5 flex-shrink-0">
-              <button onclick="previewQuestion(${JSON.stringify(q).replace(/"/g, '&quot;')})" class="btn-sm bg-slate-700 text-slate-200 hover:bg-slate-600">👁</button>
+              <button onclick="previewQuestion(${JSON.stringify(q).replace(/"/g, '&quot;')})" class="btn-sm bg-slate-700 text-slate-200 hover:bg-slate-600 inline-flex items-center gap-1" title="Preview"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>Preview</button>
               <button onclick="editQuestion(${JSON.stringify(q).replace(/"/g, '&quot;')})" class="btn-sm bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30">Edit</button>
               <button onclick="deleteQuestion('${q._id}')" class="btn-sm bg-rose-600/20 text-rose-400 hover:bg-rose-600/30">Del</button>
             </div>
@@ -1596,7 +1697,7 @@ function previewQuestion(q) {
     ${q.audioUrl ? `<audio controls class="w-full mb-4"><source src="${q.audioUrl}"></audio>` : ''}
     <p class="text-white text-base font-medium mb-4">${esc(q.question)}</p>
     <div class="space-y-2">
-      ${['A','B','C','D'].map(k => `
+      ${['A', 'B', 'C', 'D'].map(k => `
         <div class="flex items-center gap-3 p-3 rounded-xl border ${q.correctAnswer === k ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-700/30'}">
           <span class="font-bold text-sm ${optionColors[k]} px-2 py-0.5 rounded-lg">${k}</span>
           <span class="text-sm text-slate-200">${esc(q.options?.[k] || '')}</span>
@@ -1743,63 +1844,380 @@ async function deleteSubject(id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  RESULTS
+//  STUDENTS MANAGEMENT (REPLACED RESULTS)
 // ═══════════════════════════════════════════════════════════════════
-async function loadResults() {
-  try {
-    const search = document.getElementById('rSearch')?.value || '';
-    const quizId = document.getElementById('rQuizFilter')?.value || '';
-    const result = document.getElementById('rResultFilter')?.value || '';
-    const sortBy = document.getElementById('rSortBy')?.value || 'date';
 
-    let url = '/api/admin/attempts?limit=100&';
+let currentStudentsList = [];
+let studentSearchTimer = null;
+let currentStudentPage = 1;
+
+function debounceLoadStudents() {
+  if (studentSearchTimer) clearTimeout(studentSearchTimer);
+  studentSearchTimer = setTimeout(() => {
+    loadStudents(1);
+  }, 250);
+}
+
+function clearStudentFilters() {
+  const ids = ['stSearch', 'stClassFilter', 'stQuizFilter', 'stStatusFilter', 'stResultFilter', 'stGenderFilter', 'stStateFilter'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const sortEl = document.getElementById('stSortBy');
+  if (sortEl) sortEl.value = 'newest';
+
+  toast('Filters cleared — showing all registered students', 'info');
+  loadStudents(1);
+}
+
+async function loadStudents(page = 1) {
+  try {
+    currentStudentPage = page;
+    const search = document.getElementById('stSearch')?.value || document.getElementById('rSearch')?.value || '';
+    const studentClass = document.getElementById('stClassFilter')?.value || '';
+    const quizId = document.getElementById('stQuizFilter')?.value || document.getElementById('rQuizFilter')?.value || '';
+    const status = document.getElementById('stStatusFilter')?.value || '';
+    const completionStatus = document.getElementById('stResultFilter')?.value || document.getElementById('rResultFilter')?.value || '';
+    const gender = document.getElementById('stGenderFilter')?.value || '';
+    const state = document.getElementById('stStateFilter')?.value || '';
+    const sortBy = document.getElementById('stSortBy')?.value || document.getElementById('rSortBy')?.value || 'newest';
+
+    let url = `/api/admin/students?limit=50&page=${page}&`;
     if (search) url += `search=${encodeURIComponent(search)}&`;
-    if (quizId) url += `quizId=${quizId}&`;
-    if (result) url += `result=${result}&`;
+    if (studentClass) url += `class=${encodeURIComponent(studentClass)}&`;
+    if (quizId) url += `quizId=${encodeURIComponent(quizId)}&`;
+    if (status) url += `status=${encodeURIComponent(status)}&`;
+    if (completionStatus) url += `completionStatus=${encodeURIComponent(completionStatus)}&`;
+    if (gender) url += `gender=${encodeURIComponent(gender)}&`;
+    if (state) url += `state=${encodeURIComponent(state)}&`;
     url += `sortBy=${sortBy}`;
 
     const data = await API('GET', url);
+    populateQuizFilter('stQuizFilter');
     populateQuizFilter('rQuizFilter');
 
-    currentResultsList = data.attempts || [];
-    const tbody = document.getElementById('resultsTable');
-    if (!data.attempts.length) {
-      tbody.innerHTML = '<tr><td colspan="10" class="py-8 text-center text-slate-500">No results found.</td></tr>';
+    currentStudentsList = data.students || [];
+
+    // Update Quick Stats Counter
+    if (data.stats) {
+      const elTotal = document.getElementById('stStatTotal');
+      const elAtt = document.getElementById('stStatAttempted');
+      const elNotAtt = document.getElementById('stStatNotAttempted');
+      const elPass = document.getElementById('stStatPassed');
+      const elFail = document.getElementById('stStatFailed');
+      if (elTotal) elTotal.textContent = data.stats.total;
+      if (elAtt) elAtt.textContent = data.stats.attempted;
+      if (elNotAtt) elNotAtt.textContent = data.stats.notAttempted;
+      if (elPass) elPass.textContent = data.stats.passed;
+      if (elFail) elFail.textContent = data.stats.failed;
+    }
+
+    const tbody = document.getElementById('studentsTable') || document.getElementById('resultsTable');
+    if (!tbody) return;
+
+    if (!data.students || !data.students.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="11" class="py-12 text-center text-slate-500">
+            <div class="flex flex-col items-center justify-center gap-2">
+              <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <span class="font-semibold text-slate-400">No students found matching your criteria.</span>
+              <button onclick="clearStudentFilters()" class="btn-sm bg-indigo-600/80 text-white hover:bg-indigo-600 mt-2">
+                Clear Filters
+              </button>
+            </div>
+          </td>
+        </tr>`;
+      renderStudentPagination(0, 1, 1);
       return;
     }
-    tbody.innerHTML = data.attempts.map(att => `
-      <tr class="hover:bg-slate-700/20 transition">
-        <td class="px-4 py-3 font-medium text-white">${esc(att.studentName)}</td>
-        <td class="px-4 py-3 font-mono text-xs text-slate-400">${esc(att.studentIdentifier)}</td>
-        <td class="px-4 py-3 text-slate-300 text-sm font-medium">${esc(att.quizName)}</td>
-        <td class="px-4 py-3 text-xs text-indigo-400 font-semibold">${esc(att.subject || 'General')}</td>
-        <td class="px-4 py-3 font-semibold text-white">${att.score}/${att.totalQuestions}</td>
-        <td class="px-4 py-3 text-slate-300">${att.percentage}%</td>
-        <td class="px-4 py-3"><span class="${att.result === 'Pass' ? 'badge-pass' : 'badge-fail'}">${att.result || '—'}</span></td>
-        <td class="px-4 py-3 font-mono text-xs text-indigo-400">${att.certificateId || '—'}</td>
-        <td class="px-4 py-3 text-slate-400 text-xs">${fmtDateTime(att.submittedAt)}</td>
-        <td class="px-4 py-3">
-          <div class="flex gap-1">
-            <button onclick="downloadPdf('${att._id}','pdf','${esc(att.studentIdentifier)}')" class="btn-sm bg-slate-700 text-slate-200 hover:bg-slate-600 text-xs" title="Download Result PDF">📄 Result</button>
-            <button onclick="downloadPdf('${att._id}','certificate','${esc(att.studentIdentifier)}')" class="btn-sm bg-indigo-700/80 text-white hover:bg-indigo-600 text-xs" title="Download Certificate">🏆 Cert</button>
-          </div>
-        </td>
-      </tr>`).join('');
-  } catch (e) { toast('Failed to load results: ' + e.message, 'error'); }
+
+    tbody.innerHTML = data.students.map((s, idx) => {
+      // Determine rank display
+      let rankHtml = '<span class="text-slate-500 font-mono text-xs">—</span>';
+      if (s.rank && (sortBy === 'completed_earliest' || sortBy === 'score_high' || sortBy === 'completed_latest')) {
+        let badgeColor = 'bg-slate-700 text-slate-300';
+        if (s.rank === 1) badgeColor = 'bg-amber-400 text-slate-950 font-black shadow-sm';
+        else if (s.rank === 2) badgeColor = 'bg-slate-200 text-slate-900 font-black';
+        else if (s.rank === 3) badgeColor = 'bg-amber-700 text-amber-100 font-black';
+        rankHtml = `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${badgeColor}">${s.rank}</span>`;
+      } else {
+        const rowNum = (page - 1) * 50 + idx + 1;
+        rankHtml = `<span class="text-slate-500 font-mono text-xs">${rowNum}</span>`;
+      }
+
+      // Quiz Status Badge
+      let statusBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700/60 text-slate-400">Not Attempted</span>`;
+      if (s.quizStatus === 'Pass' || s.quizStatus === 'Passed') {
+        statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Passed</span>`;
+      } else if (s.quizStatus === 'Fail' || s.quizStatus === 'Better Luck Next Time') {
+        statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">Better Luck Next Time</span>`;
+      }
+
+      // Score & Completion
+      const scoreDisplay = s.latestScore !== '—'
+        ? `<span class="font-bold text-white">${s.latestScore}</span> <span class="text-slate-400 text-[11px]">(${s.latestPercentage}%)</span>`
+        : `<span class="text-slate-500">—</span>`;
+
+      const completionDisplay = s.completionTime
+        ? `<span class="text-slate-300 font-mono text-xs">${fmtDateTime(s.completionTime)}</span>`
+        : `<span class="text-slate-500 text-xs">Not taken yet</span>`;
+
+      return `
+        <tr class="hover:bg-slate-700/25 transition group">
+          <td class="px-3.5 py-3 text-center">${rankHtml}</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2.5 cursor-pointer" onclick="viewStudentProfile('${s._id}')">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                ${esc((s.firstName || s.name || '?')[0].toUpperCase())}
+              </div>
+              <div>
+                <div class="font-bold text-white hover:text-indigo-400 transition text-sm flex items-center gap-1.5">
+                  <span>${esc(s.name || `${s.firstName} ${s.lastName}`)}</span>
+                </div>
+                <div class="font-mono text-[10px] text-slate-400">${esc(s.studentIdentifier || '')}</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-3 text-slate-300 text-xs break-all">${esc(s.email)}</td>
+          <td class="px-3 py-3">
+            <span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+              ${esc(s.class || '—')}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-slate-300 text-xs max-w-[160px] truncate" title="${esc(s.schoolName || '')}">
+            ${esc(s.schoolName || '—')}
+          </td>
+          <td class="px-3.5 py-3 text-slate-400 text-xs whitespace-nowrap">
+            ${fmtDateOnly(s.createdAt)}
+          </td>
+          <td class="px-3 py-3 text-center whitespace-nowrap">
+            ${statusBadge}
+          </td>
+          <td class="px-4 py-3 text-slate-300 text-xs max-w-[150px] truncate" title="${esc(s.latestQuizName)}">
+            <span class="font-medium">${esc(s.latestQuizName)}</span>
+            ${s.latestSubject ? `<span class="block text-[10px] text-indigo-400">${esc(s.latestSubject)}</span>` : ''}
+          </td>
+          <td class="px-3 py-3 text-center whitespace-nowrap">
+            ${scoreDisplay}
+          </td>
+          <td class="px-4 py-3 text-xs whitespace-nowrap">
+            ${completionDisplay}
+          </td>
+          <td class="px-3.5 py-3 text-right whitespace-nowrap">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="viewStudentProfile('${s._id}')"
+                class="btn-sm bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1 flex items-center gap-1.5 cursor-pointer"
+                title="View student profile and quiz history">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span>Profile</span>
+              </button>
+              ${s.certificateId ? `
+                <button onclick="downloadPdf('${s.latestAttemptId}', 'certificate', '${esc(s.studentIdentifier)}')"
+                  class="btn-sm bg-indigo-700/80 hover:bg-indigo-600 text-white text-xs px-2.5 py-1 flex items-center gap-1.5 cursor-pointer"
+                  title="Download Certificate">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                  </svg>
+                  <span>Certificate</span>
+                </button>
+              ` : ''}
+              <button onclick="deleteStudent('${s._id}', '${esc(s.name || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student')}')"
+                class="btn-sm bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 text-xs px-2.5 py-1 flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                title="Delete Student">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span>Delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    renderStudentPagination(data.total, data.page, data.pages);
+  } catch (e) {
+    toast('Failed to load students: ' + e.message, 'error');
+  }
 }
+
+function renderStudentPagination(total, page, pages) {
+  const infoEl = document.getElementById('stPaginationInfo');
+  const btnsEl = document.getElementById('stPaginationBtns');
+  if (infoEl) {
+    infoEl.textContent = `Showing page ${page} of ${pages || 1} (${total} registered student${total === 1 ? '' : 's'})`;
+  }
+  if (!btnsEl) return;
+
+  if (pages <= 1) {
+    btnsEl.innerHTML = '';
+    return;
+  }
+
+  let html = '';
+  if (page > 1) {
+    html += `<button onclick="loadStudents(${page - 1})" class="btn-secondary text-xs px-2.5 py-1">Previous</button>`;
+  }
+  html += `<span class="px-2 text-xs text-slate-400 font-bold">${page} / ${pages}</span>`;
+  if (page < pages) {
+    html += `<button onclick="loadStudents(${page + 1})" class="btn-secondary text-xs px-2.5 py-1">Next</button>`;
+  }
+  btnsEl.innerHTML = html;
+}
+
+// ─── Single Student Profile Detail Modal ──────────────────────────────────────
+async function viewStudentProfile(studentId) {
+  try {
+    toast('Loading student profile...', 'info');
+    const res = await API('GET', `/api/admin/students/${studentId}`);
+    if (!res.success || !res.student) {
+      toast('Student details not found.', 'error');
+      return;
+    }
+
+    const s = res.student;
+    const attempts = res.attempts || [];
+
+    // Header elements
+    const avatarEl = document.getElementById('sdAvatar');
+    if (avatarEl) avatarEl.textContent = (s.firstName || s.name || '?')[0].toUpperCase();
+
+    const nameEl = document.getElementById('sdName');
+    if (nameEl) nameEl.textContent = s.name || `${s.firstName || ''} ${s.lastName || ''}`.trim();
+
+    const idEl = document.getElementById('sdIdentifier');
+    if (idEl) idEl.textContent = s.studentIdentifier || 'No ID';
+
+    const classSchoolEl = document.getElementById('sdClassSchool');
+    if (classSchoolEl) classSchoolEl.textContent = `${s.class || s.className || 'Class —'} • ${s.schoolName || 'School —'}`;
+
+    // Profile Details
+    const fill = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val || '—';
+    };
+
+    fill('sdFullName', `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.name);
+    fill('sdEmail', s.email);
+    fill('sdMobile', s.mobileNumber || 'Not Provided');
+    fill('sdClass', s.class || s.className);
+    fill('sdSchool', s.schoolName);
+    fill('sdDob', s.dateOfBirth || s.dob);
+    fill('sdGender', s.gender);
+    fill('sdState', s.state);
+    fill('sdPinCode', s.pinCode);
+    fill('sdAddress', s.address);
+    fill('sdParticipation', s.previousQuizParticipation || s.participatedEarlier || 'No');
+    fill('sdRegisteredAt', fmtDateTime(s.createdAt));
+
+    // Attempts
+    const countEl = document.getElementById('sdAttemptsCount');
+    if (countEl) countEl.textContent = `${attempts.length} Quiz Attempt${attempts.length === 1 ? '' : 's'}`;
+
+    const attemptsTbody = document.getElementById('sdAttemptsTable');
+    if (attemptsTbody) {
+      if (!attempts.length) {
+        attemptsTbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">This student has not attempted any quizzes yet.</td></tr>';
+      } else {
+        attemptsTbody.innerHTML = attempts.map(att => `
+          <tr class="hover:bg-slate-700/30 transition">
+            <td class="px-3 py-2.5 font-medium text-white">${esc(att.quizName)}</td>
+            <td class="px-3 py-2.5 text-indigo-400 font-semibold">${esc(att.subject || 'General')}</td>
+            <td class="px-3 py-2.5 text-center font-bold text-white">${att.score}/${att.totalQuestions}</td>
+            <td class="px-3 py-2.5 text-center text-slate-300 font-mono">${att.percentage}%</td>
+            <td class="px-3 py-2.5 text-center">
+              <span class="${att.percentage >= 50 ? 'badge-pass' : 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30'} text-[10px] px-2 py-0.5">${att.percentage >= 50 ? (att.result || 'Passed') : 'Better Luck Next Time'}</span>
+            </td>
+            <td class="px-3 py-2.5 text-slate-300 font-mono text-[11px]">${fmtDateTime(att.submittedAt)}</td>
+            <td class="px-3 py-2.5 text-right whitespace-nowrap">
+              <div class="flex items-center justify-end gap-1.5">
+                <button onclick="downloadPdf('${att._id}', 'pdf', '${esc(s.studentIdentifier)}')"
+                  class="btn-sm bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1 flex items-center gap-1"
+                  title="Download Result PDF">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <span>Result</span>
+                </button>
+                ${att.certificateId ? `
+                  <button onclick="downloadPdf('${att._id}', 'certificate', '${esc(s.studentIdentifier)}')"
+                    class="btn-sm bg-indigo-700/80 hover:bg-indigo-600 text-white text-xs px-2.5 py-1 flex items-center gap-1"
+                    title="Download Certificate PDF">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
+                    <span>Certificate</span>
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    // Connect Delete Student button in profile modal
+    const delBtn = document.getElementById('sdDeleteBtn');
+    if (delBtn) {
+      delBtn.onclick = () => {
+        const studentDisplayName = s.name || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student';
+        deleteStudent(s._id, studentDisplayName, true);
+      };
+    }
+
+    openModal('studentDetailModal');
+  } catch (e) {
+    toast('Error loading profile: ' + e.message, 'error');
+  }
+}
+
+// ─── Delete Student Action ───────────────────────────────────────────────────
+async function deleteStudent(studentId, studentName = 'this student', closeDetailModal = false) {
+  confirmAction(
+    'Delete Student',
+    `Are you sure you want to permanently delete "${studentName}" and all associated quiz attempts? This action cannot be undone.`,
+    async () => {
+      try {
+        const res = await API('DELETE', `/api/admin/students/${studentId}`);
+        toast(res.message || `Student "${studentName}" deleted successfully.`, 'success');
+        if (closeDetailModal) {
+          closeModal('studentDetailModal');
+        }
+        await loadStudents();
+      } catch (e) {
+        toast('Failed to delete student: ' + e.message, 'error');
+      }
+    }
+  );
+}
+
+// Helper: Format date only (e.g. 19 Sep 2026)
+function fmtDateOnly(d) {
+  if (!d) return '—';
+  try {
+    return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return d; }
+}
+
+// ─── Backward compatibility alias ────────────────────────────────────────────
+const loadResults = loadStudents;
 
 let currentResultsList = [];
 
 async function downloadAllCertificates() {
-  if (!currentResultsList || !currentResultsList.length) {
-    toast('No student attempts found to download.', 'error');
+  const listToDownload = currentStudentsList.filter(s => s.certificateId && s.latestAttemptId);
+  if (!listToDownload.length) {
+    toast('No student certificates available to download in current view.', 'error');
     return;
   }
-  toast(`Downloading ${currentResultsList.length} certificates...`, 'info');
-  for (let i = 0; i < currentResultsList.length; i++) {
-    const att = currentResultsList[i];
-    await downloadPdf(att._id, 'certificate', att.studentIdentifier || 'student');
-    if (i < currentResultsList.length - 1) {
+  toast(`Downloading ${listToDownload.length} certificates...`, 'info');
+  for (let i = 0; i < listToDownload.length; i++) {
+    const s = listToDownload[i];
+    await downloadPdf(s.latestAttemptId, 'certificate', s.studentIdentifier || 'student');
+    if (i < listToDownload.length - 1) {
       await new Promise(r => setTimeout(r, 600));
     }
   }
@@ -1845,11 +2263,11 @@ function populateSubjectFilter(selectId) {
 // ─── XSS escape ──────────────────────────────────────────────────────────────
 function esc(str) {
   if (str == null) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  CLASSES (कक्षा प्रबंधन)
+//  CLASSES MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════
 async function loadClassesData() {
   const data = await API('GET', '/api/admin/classes');
@@ -1896,13 +2314,12 @@ function renderClasses() {
         </td>
         <td class="px-4 py-3">
           <button onclick="toggleClassActive('${c._id}')"
-            class="px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition ${
-              isActive
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
-                : 'bg-slate-700/60 text-slate-400 border border-slate-600 hover:bg-slate-700'
-            }" title="Click to toggle active on student portal">
+            class="px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition ${isActive
+        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+        : 'bg-slate-700/60 text-slate-400 border border-slate-600 hover:bg-slate-700'
+      }" title="Click to toggle active on student portal">
             <span class="w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-slate-500'}"></span>
-            ${isActive ? 'Active (छात्रों को दिखेगी)' : 'Inactive (छिपी हुई)'}
+            ${isActive ? 'Active (Visible to students)' : 'Inactive (Hidden)'}
           </button>
         </td>
         <td class="px-4 py-3">
@@ -2028,5 +2445,425 @@ async function deleteClass(id) {
       toast(e.message, 'error');
     }
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  THEME & EXAMINATION BRANDING MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════
+
+let currentThemeSettings = {
+  topRightImage: '/img/ghadhi.png',
+  showTopRightImage: true,
+  topRightImageWidth: 160,
+  enableBgImage: true,
+  bgImage: '/img/polygon_bg.jpg',
+  bgColor: '#f3f8fa',
+};
+
+async function loadThemeSettings() {
+  try {
+    const res = await API('GET', '/api/admin/theme');
+    if (res && res.theme) {
+      currentThemeSettings = { ...currentThemeSettings, ...res.theme };
+    }
+    populateThemeForm();
+  } catch (err) {
+    console.warn('Could not load theme settings, using defaults:', err);
+    populateThemeForm();
+  }
+}
+
+function populateThemeForm() {
+  const showTopRightEl = document.getElementById('themeShowTopRight');
+  const topRightUrlEl = document.getElementById('themeTopRightUrl');
+  const topRightWidthEl = document.getElementById('themeTopRightWidth');
+  const topRightTopEl = document.getElementById('themeTopRightTop');
+  const topRightRightEl = document.getElementById('themeTopRightRight');
+  const enableBgImageEl = document.getElementById('themeEnableBgImage');
+  const bgColorTextEl = document.getElementById('themeBgColorText');
+  const bgImageUrlEl = document.getElementById('themeBgImageUrl');
+
+  if (showTopRightEl) showTopRightEl.value = currentThemeSettings.showTopRightImage !== false ? 'true' : 'false';
+  if (topRightUrlEl) topRightUrlEl.value = currentThemeSettings.topRightImage || '/img/ghadhi.png';
+  if (topRightWidthEl) topRightWidthEl.value = currentThemeSettings.topRightImageWidth || 160;
+  if (topRightTopEl) topRightTopEl.value = currentThemeSettings.topRightTop ?? 80;
+  if (topRightRightEl) topRightRightEl.value = currentThemeSettings.topRightRight ?? 40;
+  if (enableBgImageEl) enableBgImageEl.value = currentThemeSettings.enableBgImage !== false ? 'true' : 'false';
+  if (bgColorTextEl) bgColorTextEl.value = currentThemeSettings.bgColor || '#FAF9F5';
+  if (bgImageUrlEl) bgImageUrlEl.value = currentThemeSettings.bgImage || '/img/background.jpg';
+
+  handleThemeControlChange();
+}
+
+function handleThemeControlChange() {
+  const showTopRight = document.getElementById('themeShowTopRight')?.value !== 'false';
+  const topRightUrl = document.getElementById('themeTopRightUrl')?.value.trim() || '/img/ghadhi.png';
+  const topRightWidth = Number(document.getElementById('themeTopRightWidth')?.value) || 160;
+  const topRightTop = Number(document.getElementById('themeTopRightTop')?.value) ?? 80;
+  const topRightRight = Number(document.getElementById('themeTopRightRight')?.value) ?? 40;
+  const enableBgImage = document.getElementById('themeEnableBgImage')?.value !== 'false';
+  const bgColor = document.getElementById('themeBgColorText')?.value.trim() || '#FAF9F5';
+  const bgImageUrl = document.getElementById('themeBgImageUrl')?.value.trim() || '/img/background.jpg';
+
+  // Update Live Simulator
+  const simFrame = document.getElementById('themeLiveSimulatorFrame');
+  const simTopRightWrapper = document.getElementById('simulatedTopRightWrapper');
+  const simTopRightImg = document.getElementById('simulatedTopRightImg');
+
+  // Update Illustration Toggle Button
+  const illusBtn = document.getElementById('themeIllustrationToggleBtn');
+  const illusDot = document.getElementById('themeIllustrationDot');
+  const illusLabel = document.getElementById('themeIllustrationToggleLabel');
+  if (illusBtn && illusDot && illusLabel) {
+    if (showTopRight) {
+      illusBtn.className = 'text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition flex items-center gap-1.5 cursor-pointer';
+      illusDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+      illusLabel.textContent = 'Illustration: ON';
+    } else {
+      illusBtn.className = 'text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-slate-700/60 text-slate-400 border border-slate-600 hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer';
+      illusDot.className = 'w-2 h-2 rounded-full bg-slate-500';
+      illusLabel.textContent = 'Illustration: OFF';
+    }
+  }
+
+  // Update Background Image Toggle Button
+  const bgBtn = document.getElementById('themeBgToggleBtn');
+  const bgDot = document.getElementById('themeBgDot');
+  const bgLabel = document.getElementById('themeBgToggleLabel');
+  if (bgBtn && bgDot && bgLabel) {
+    if (enableBgImage) {
+      bgBtn.className = 'text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25 transition flex items-center gap-1.5 cursor-pointer';
+      bgDot.className = 'w-2 h-2 rounded-full bg-indigo-400';
+      bgLabel.textContent = 'Background: ON';
+    } else {
+      bgBtn.className = 'text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-slate-700/60 text-slate-400 border border-slate-600 hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer';
+      bgDot.className = 'w-2 h-2 rounded-full bg-slate-500';
+      bgLabel.textContent = 'Background: OFF';
+    }
+  }
+
+  if (simFrame) {
+    simFrame.style.backgroundColor = bgColor;
+    if (enableBgImage && bgImageUrl) {
+      simFrame.style.backgroundImage = `url('${bgImageUrl}')`;
+      simFrame.style.backgroundSize = 'cover';
+      simFrame.style.backgroundPosition = 'center';
+    } else {
+      simFrame.style.backgroundImage = 'none';
+    }
+  }
+
+  if (simTopRightWrapper) {
+    simTopRightWrapper.style.display = showTopRight ? 'block' : 'none';
+    simTopRightWrapper.style.top = `${topRightTop}px`;
+    simTopRightWrapper.style.right = `${topRightRight}px`;
+  }
+  if (simTopRightImg) {
+    simTopRightImg.src = topRightUrl;
+    const scaledWidth = Math.min(280, Math.max(60, topRightWidth));
+    simTopRightImg.style.width = `${scaledWidth}px`;
+  }
+}
+
+function toggleThemeIllustration() {
+  const inputEl = document.getElementById('themeShowTopRight');
+  const current = inputEl ? inputEl.value !== 'false' : true;
+  const nextVal = !current;
+  if (inputEl) inputEl.value = nextVal ? 'true' : 'false';
+  currentThemeSettings.showTopRightImage = nextVal;
+  handleThemeControlChange();
+  toast(nextVal ? 'Illustration enabled (ON)' : 'Illustration disabled (OFF)', 'info');
+}
+
+function toggleThemeBg() {
+  const inputEl = document.getElementById('themeEnableBgImage');
+  const current = inputEl ? inputEl.value !== 'false' : true;
+  const nextVal = !current;
+  if (inputEl) inputEl.value = nextVal ? 'true' : 'false';
+  currentThemeSettings.enableBgImage = nextVal;
+  handleThemeControlChange();
+  toast(nextVal ? 'Background image enabled (ON)' : 'Background image disabled (OFF)', 'info');
+}
+
+function compressImageBeforeUpload(file, maxWidth, quality = 0.82) {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/') || file.type.includes('svg')) {
+      return resolve(file);
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        canvas.toBlob((blob) => {
+          if (!blob || blob.size >= file.size) {
+            return resolve(file);
+          }
+          const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '') + (mime === 'image/png' ? '.png' : '.jpg'), { type: mime });
+          resolve(compressed);
+        }, mime, quality);
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleThemeFileUpload(event, targetField) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const isGraphic = targetField === 'topRightImage';
+  const statusEl = document.getElementById(isGraphic ? 'themeTopRightUploadStatus' : 'themeBgUploadStatus');
+  const origText = statusEl ? statusEl.textContent : '';
+
+  if (statusEl) {
+    statusEl.textContent = 'Optimizing & Uploading...';
+  }
+
+  try {
+    const fileToUpload = await compressImageBeforeUpload(file, isGraphic ? 600 : 1920, isGraphic ? 0.85 : 0.80);
+    const formData = new FormData();
+    formData.append('image', fileToUpload);
+
+    const res = await API('POST', '/api/admin/theme/upload', formData, true);
+    if (res && res.url) {
+      if (isGraphic) {
+        document.getElementById('themeTopRightUrl').value = res.url;
+        document.getElementById('themeShowTopRight').value = 'true';
+      } else {
+        document.getElementById('themeBgImageUrl').value = res.url;
+        document.getElementById('themeEnableBgImage').value = 'true';
+      }
+      handleThemeControlChange();
+      if (statusEl) {
+        statusEl.textContent = isGraphic ? '✓ Illustration Uploaded' : '✓ Background Uploaded';
+      }
+      toast('Image uploaded! Click "Save" to apply permanently.', 'success');
+    }
+  } catch (err) {
+    console.error('File upload failed:', err);
+    if (statusEl) {
+      statusEl.textContent = isGraphic ? '✕ Upload Failed' : '✕ Upload Failed';
+    }
+    toast('Upload failed: ' + err.message, 'error');
+  } finally {
+    // Restore label after 3s
+    setTimeout(() => {
+      if (statusEl) statusEl.textContent = origText;
+    }, 3000);
+    event.target.value = '';
+  }
+}
+
+async function saveThemeSettings() {
+  const saveBtn = document.getElementById('saveThemeBtn');
+  const saveBtnText = document.getElementById('saveThemeBtnText');
+
+  const payload = {
+    showTopRightImage: document.getElementById('themeShowTopRight')?.value !== 'false',
+    topRightImage: document.getElementById('themeTopRightUrl')?.value.trim() || '/img/ghadhi.png',
+    topRightImageWidth: Number(document.getElementById('themeTopRightWidth')?.value) || 160,
+    topRightTop: Number(document.getElementById('themeTopRightTop')?.value) || 80,
+    topRightRight: Number(document.getElementById('themeTopRightRight')?.value) || 40,
+    enableBgImage: document.getElementById('themeEnableBgImage')?.value !== 'false',
+    bgColor: document.getElementById('themeBgColorText')?.value.trim() || '#FAF9F5',
+    bgImage: document.getElementById('themeBgImageUrl')?.value.trim() || '/img/background.jpg',
+  };
+
+  if (saveBtn) saveBtn.disabled = true;
+  if (saveBtnText) saveBtnText.textContent = 'Saving...';
+
+  try {
+    const res = await API('PUT', '/api/admin/theme', payload);
+    if (res && res.theme) {
+      currentThemeSettings = res.theme;
+      toast('Theme settings saved successfully!', 'success');
+      handleThemeControlChange();
+    }
+  } catch (err) {
+    console.error('Failed to save theme settings:', err);
+    toast('Failed to save theme: ' + err.message, 'error');
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+    if (saveBtnText) saveBtnText.textContent = 'Save Theme';
+  }
+}
+
+function resetThemeToDefault() {
+  confirmAction(
+    'Reset Theme Settings',
+    'Reset all visuals to default? Click "Save" to persist.',
+    () => {
+      currentThemeSettings = {
+        topRightImage: '/img/ghadhi.png',
+        showTopRightImage: true,
+        topRightImageWidth: 160,
+        topRightTop: 80,
+        topRightRight: 40,
+        enableBgImage: true,
+        bgImage: '/img/background.jpg',
+        bgColor: '#FAF9F5',
+      };
+      populateThemeForm();
+      toast('Reset to defaults. Click "Save" to persist.', 'info');
+    }
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAG & DROP + RESIZE for the illustration image in the live preview
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _isDragging = false;
+let _isResizing = false;
+let _dragStartX = 0;
+let _dragStartY = 0;
+let _elemStartTop = 0;
+let _elemStartRight = 0;
+let _resizeStartX = 0;
+let _resizeStartWidth = 140;
+
+function _getPointerXY(e) {
+  if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+
+function _showTooltip(text) {
+  const tip = document.getElementById('themeImageInfoTooltip');
+  if (tip) { tip.textContent = text; tip.classList.remove('hidden'); }
+}
+function _hideTooltip() {
+  const tip = document.getElementById('themeImageInfoTooltip');
+  if (tip) tip.classList.add('hidden');
+}
+
+/* ── DRAG ── */
+function startDragImage(e) {
+  // Don't start drag if it was the resize handle
+  if (_isResizing) return;
+  if (e.target.closest('[onmousedown*="startResizeImage"]') || e.target.closest('[ontouchstart*="startResizeImage"]')) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  _isDragging = true;
+  const { x, y } = _getPointerXY(e);
+  _dragStartX = x;
+  _dragStartY = y;
+
+  const wrapper = document.getElementById('simulatedTopRightWrapper');
+  _elemStartTop = parseInt(wrapper.style.top) || 48;
+  // right is stored but we convert to left-based to simplify dragging
+  const frame = document.getElementById('themeLiveSimulatorFrame');
+  const frameRect = frame.getBoundingClientRect();
+  const wrapperRect = wrapper.getBoundingClientRect();
+  _elemStartRight = frameRect.right - wrapperRect.right;
+
+  wrapper.style.outline = '2px solid rgba(99,102,241,0.6)';
+  wrapper.style.outlineOffset = '2px';
+  _showTooltip('Drag to reposition');
+
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+  document.addEventListener('touchmove', onDragMove, { passive: false });
+  document.addEventListener('touchend', onDragEnd);
+}
+
+function onDragMove(e) {
+  if (!_isDragging) return;
+  e.preventDefault();
+  const { x, y } = _getPointerXY(e);
+  const dx = x - _dragStartX;
+  const dy = y - _dragStartY;
+
+  const wrapper = document.getElementById('simulatedTopRightWrapper');
+  const newTop = Math.max(0, Math.round(_elemStartTop + dy));
+  const newRight = Math.max(0, Math.round(_elemStartRight - dx));
+
+  wrapper.style.top = `${newTop}px`;
+  wrapper.style.right = `${newRight}px`;
+
+  const topInput = document.getElementById('themeTopRightTop');
+  const rightInput = document.getElementById('themeTopRightRight');
+  if (topInput) topInput.value = newTop;
+  if (rightInput) rightInput.value = newRight;
+
+  _showTooltip(`Position: Top ${newTop}px, Right ${newRight}px`);
+}
+
+function onDragEnd() {
+  _isDragging = false;
+  const wrapper = document.getElementById('simulatedTopRightWrapper');
+  if (wrapper) {
+    wrapper.style.outline = '';
+    wrapper.style.outlineOffset = '';
+  }
+  _hideTooltip();
+
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+  document.removeEventListener('touchmove', onDragMove);
+  document.removeEventListener('touchend', onDragEnd);
+}
+
+/* ── RESIZE ── */
+function startResizeImage(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  _isResizing = true;
+  const { x } = _getPointerXY(e);
+  _resizeStartX = x;
+
+  const img = document.getElementById('simulatedTopRightImg');
+  _resizeStartWidth = parseInt(img.style.width) || 140;
+
+  _showTooltip(`Width: ${_resizeStartWidth}px`);
+
+  document.addEventListener('mousemove', onResizeMove);
+  document.addEventListener('mouseup', onResizeEnd);
+  document.addEventListener('touchmove', onResizeMove, { passive: false });
+  document.addEventListener('touchend', onResizeEnd);
+}
+
+function onResizeMove(e) {
+  if (!_isResizing) return;
+  e.preventDefault();
+  const { x } = _getPointerXY(e);
+  const dx = x - _resizeStartX;
+  const newWidth = Math.min(400, Math.max(40, _resizeStartWidth + dx));
+
+  const img = document.getElementById('simulatedTopRightImg');
+  img.style.width = `${newWidth}px`;
+
+  // Sync hidden field
+  document.getElementById('themeTopRightWidth').value = newWidth;
+
+  _showTooltip(`Width: ${Math.round(newWidth)}px`);
+}
+
+function onResizeEnd() {
+  _isResizing = false;
+  _hideTooltip();
+
+  document.removeEventListener('mousemove', onResizeMove);
+  document.removeEventListener('mouseup', onResizeEnd);
+  document.removeEventListener('touchmove', onResizeMove);
+  document.removeEventListener('touchend', onResizeEnd);
 }
 

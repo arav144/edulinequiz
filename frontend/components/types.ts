@@ -1,10 +1,34 @@
 export type Language = 'en' | 'hi';
 
+export interface IStudentProfile {
+  _id?: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  mobileNumber?: string;
+  schoolName: string;
+  className: string;
+  class?: string;
+  dob: string; // DD/MM/YYYY
+  dateOfBirth?: string;
+  gender: 'Male' | 'Female' | 'Other' | '';
+  state: string;
+  address: string;
+  pinCode: string;
+  participatedEarlier: 'Yes' | 'No' | '';
+  previousQuizParticipation?: boolean;
+  studentIdentifier?: string;
+  isVerifiedEmail?: boolean;
+  registeredAt?: string;
+}
+
 export interface IQuizSummary {
   _id: string;
   name: string;
   subject?: string;
-  subjectId?: string;
+  subjectId?: string | { _id?: string; name?: string } | any;
+  classes?: string[];
   numberOfQuestions: number;
   status: string;
   passingPercentage?: number;
@@ -89,7 +113,7 @@ export interface ISubmissionResult {
   wrongAnswers?: number;
   totalQuestions: number;
   percentage: number;
-  result: 'Pass' | 'Fail';
+  result: string;
   passingPercentage?: number;
   certificateId?: string;
   submittedAt: string;
@@ -114,11 +138,30 @@ export const TRANSLATIONS = {
     sectionLabel: 'Section *',
     selectSection: 'Select Section',
     rollLabel: 'Roll Number *',
-    rollPlaceholder: 'e.g. 24',
+    rollPlaceholder: 'e.g. 101',
     subjectLabel: 'Subject *',
     selectSubject: 'Select Subject',
-    schoolLabel: 'School / Institution Name *',
-    schoolPlaceholder: 'e.g. ABC Public School',
+    schoolLabel: 'School Name *',
+    schoolPlaceholder: 'e.g. Delhi Public School',
+    stateLabel: 'State *',
+    selectState: 'Select State',
+    cityLabel: 'City',
+    cityPlaceholder: 'e.g. New Delhi',
+    startBtn: 'Begin Examination',
+    fillRequired: 'Please fill in all mandatory fields.',
+    errorTitle: 'Notification',
+    alreadyAttemptedTitle: 'Assessment Already Submitted',
+    alreadyAttemptedMsg: 'Our academic registry indicates this roll number has already completed this assessment.',
+    viewPreviousCert: 'View Your Issued Certificate',
+    close: 'Close',
+    back: 'Back',
+    rulesTitle: 'Assessment Instructions & Integrity Protocol',
+    rulesText: 'Please review all competition rules and guidelines before proceeding.',
+    contactTitle: 'Academic Support & Helpdesk',
+    contactText: 'Reach out to the Eduline assessment coordination team.',
+    contactEmail: 'support@edulinepublishers.com',
+    contactPhone: '+91 11 4567 8900',
+    contactHours: 'Mon - Sat: 9:00 AM - 6:00 PM IST',
     startQuizBtn: 'Proceed ➔',
     formFooterTag: 'A celebration of knowledge, language and academic excellence',
     heroTagline: 'Language, Heritage & Excellence',
@@ -141,7 +184,7 @@ export const TRANSLATIONS = {
     of: 'of',
     answered: 'Answered',
     timeRemaining: 'Time Remaining for this Question',
-    lockedWarning: '⚠️ Locked once advanced (No back option)',
+    lockedWarning: 'Locked once advanced (No back option)',
     nextBtn: 'Next Question',
     reviewSubmitBtn: 'Review & Submit',
     confirmSubmitTitle: 'Confirm Final Submission?',
@@ -154,8 +197,8 @@ export const TRANSLATIONS = {
     correct: 'Correct',
     wrong: 'Wrong',
     result: 'Result',
-    pass: 'Pass',
-    fail: 'Fail',
+    pass: 'Passed',
+    fail: 'Better Luck Next Time',
     downloadResult: 'Download Result Card',
     downloadCert: 'Download Certificate',
     backToDashboard: 'Return to Assessment Portal',
@@ -220,8 +263,8 @@ export const TRANSLATIONS = {
     correct: 'सही उत्तर',
     wrong: 'गलत उत्तर',
     result: 'परिणाम',
-    pass: 'उत्तीर्ण (Pass)',
-    fail: 'अनुत्तीर्ण (Fail)',
+    pass: 'उत्तीर्ण (Passed)',
+    fail: 'पुनः प्रयास करें (Better Luck Next Time)',
     downloadResult: 'परिणाम पत्रक (Result) डाउनलोड करें',
     downloadCert: 'प्रमाणपत्र (Certificate) डाउनलोड करें',
     backToDashboard: 'मुख्य पृष्ठ पर वापस जाएँ',
@@ -245,4 +288,23 @@ export const getOptionLabel = (key: string, isHindi: boolean): string => {
     return hindiMap[key.toUpperCase()] || key;
   }
   return key;
+};
+
+// Score-dependent encouraging remark (NEVER "Fail")
+export const getScoreRemark = (pct: number, isHindi: boolean = false): string => {
+  const p = Math.round(pct ?? 0);
+  if (p >= 90) return isHindi ? 'उत्कृष्ट (Outstanding)' : 'Outstanding';
+  if (p >= 75) return isHindi ? 'अति उत्तम (Very Good)' : 'Very Good';
+  if (p >= 60) return isHindi ? 'सराहनीय (Good Effort)' : 'Good Effort';
+  if (p >= 50) return isHindi ? 'उत्तीर्ण (Passed)' : 'Passed';
+  return isHindi ? 'पुनः प्रयास करें (Better Luck Next Time)' : 'Better Luck Next Time';
+};
+
+export const getScoreRemarkShort = (pct: number, isHindi: boolean = false): string => {
+  const p = Math.round(pct ?? 0);
+  if (p >= 90) return isHindi ? 'उत्कृष्ट' : 'Outstanding';
+  if (p >= 75) return isHindi ? 'अति उत्तम' : 'Very Good';
+  if (p >= 60) return isHindi ? 'सराहनीय' : 'Good Effort';
+  if (p >= 50) return isHindi ? 'उत्तीर्ण' : 'Passed';
+  return isHindi ? 'पुनः प्रयास करें' : 'Better Luck Next Time';
 };

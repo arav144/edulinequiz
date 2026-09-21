@@ -51,7 +51,7 @@ FRONTEND_URL=http://localhost:3000
 ADMIN_USERNAME=admin
   - Username for Admin Console authentication.
 
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=eduline@2026
   - Password for Admin Console authentication.
 
 --------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ Console will print:
 
 Admin Console Access:
    Open browser at: http://localhost:5000/admin
-   Log in with: admin / admin123
+   Log in with: admin / eduline@2026
 
 --------------------------------------------------------------------------------
 4. MONGODB ATLAS DATABASE SETUP
