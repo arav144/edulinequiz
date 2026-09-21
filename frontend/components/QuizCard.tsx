@@ -26,7 +26,7 @@ function fmtDate(raw?: string | Date | null): string {
   const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
   if (hasTime) {
     const timeStr = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
-    return `${dateStr}, ${timeStr}`;
+    return `${dateStr}, ${timeStr.replace(/\s+/g, '\u00A0')}`;
   }
   return dateStr;
 }
@@ -171,24 +171,24 @@ const QuizCardComponent: React.FC<QuizCardProps> = ({ quiz, selectedClassName, o
           <p className="text-[11px] text-slate-400 mt-0.5 font-medium">{subjectName}</p>
         </div>
 
-        {/* Start / End dates */}
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
+        {/* Start / End dates & Time */}
+        <div className="space-y-1 text-[11px] bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
           {startDate !== '—' && (
-            <div>
-              <span className="text-slate-400 font-medium">Start: </span>
-              <span className="text-slate-700 font-bold">{startDate}</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-400 font-semibold shrink-0">Start:</span>
+              <span className="text-slate-700 font-bold whitespace-nowrap text-right">{startDate}</span>
             </div>
           )}
           {endDate !== '—' && (
-            <div>
-              <span className="text-slate-400 font-medium">End: </span>
-              <span className="text-slate-700 font-bold">{endDate}</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-400 font-semibold shrink-0">End:</span>
+              <span className="text-slate-700 font-bold whitespace-nowrap text-right">{endDate}</span>
             </div>
           )}
           {displayTiming && (
-            <div className="col-span-2">
-              <span className="text-slate-400 font-medium">Time: </span>
-              <span className="text-slate-700 font-bold">{displayTiming}</span>
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
+              <span className="text-slate-400 font-semibold shrink-0">Time:</span>
+              <span className="text-slate-700 font-bold whitespace-nowrap text-right">{displayTiming}</span>
             </div>
           )}
         </div>
