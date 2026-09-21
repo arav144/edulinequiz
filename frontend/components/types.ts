@@ -4,7 +4,7 @@ export interface IStudentProfile {
   _id?: string;
   email: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
   fullName: string;
   mobileNumber?: string;
   schoolName: string;

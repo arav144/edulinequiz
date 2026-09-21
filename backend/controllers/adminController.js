@@ -213,7 +213,7 @@ const createQuiz = async (req, res, next) => {
       numberOfQuestions: targetCount,
       status,
       passingPercentage: passingPercentage ? Number(passingPercentage) : 50,
-      timePerQuestion: timePerQuestion ? Number(timePerQuestion) : 30,
+      timePerQuestion: timePerQuestion ? Number(timePerQuestion) : 40,
       description: description ? description.trim() : '',
       instructions: instructions ? instructions.trim() : '',
       contactInfo: contactInfo ? contactInfo.trim() : '',

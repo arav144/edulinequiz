@@ -178,10 +178,8 @@ const registerStudent = async (req, res, next) => {
     if (!firstName || !firstName.trim() || firstName.trim().length < 2) {
       return res.status(400).json({ success: false, message: 'Valid First Name is required (minimum 2 characters).' });
     }
-    if (!lastName || !lastName.trim() || lastName.trim().length < 1) {
-      return res.status(400).json({ success: false, message: 'Last Name is required.' });
-    }
 
+    const cleanLastName = (lastName || '').trim();
     const cleanMobile = String(mobileNumber || '').trim().replace(/\D/g, '');
     const effectiveMobile = cleanMobile.length === 10 ? cleanMobile : '';
 
@@ -245,12 +243,12 @@ const registerStudent = async (req, res, next) => {
 
     // 5. Create Student record
     const studentIdentifier = `EDU-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
-    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+    const fullName = `${firstName.trim()} ${cleanLastName}`.trim();
 
     const student = await Student.create({
       studentIdentifier,
       firstName: firstName.trim(),
-      lastName: lastName.trim(),
+      lastName: cleanLastName,
       name: fullName,
       email: cleanEmail,
       emailVerified: true,
@@ -435,7 +433,7 @@ const updateStudentProfile = async (req, res, next) => {
 
     // Update fields (except email and studentIdentifier which remain unchanged)
     if (firstName) student.firstName = firstName.trim();
-    if (lastName) student.lastName = lastName.trim();
+    if (lastName !== undefined) student.lastName = (lastName || '').trim();
     student.name = `${student.firstName || ''} ${student.lastName || ''}`.trim();
 
     if (mobileNumber !== undefined) student.mobileNumber = mobileNumber;

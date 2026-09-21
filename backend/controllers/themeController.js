@@ -1,29 +1,11 @@
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const cloudinary = require('../config/cloudinary');
 const Theme = require('../models/Theme');
 
-// Ensure local upload directory exists
-const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Multer Disk Storage for Theme Assets
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const sanitizedBase = path
-      .basename(file.originalname, ext)
-      .replace(/[^a-zA-Z0-9_-]/g, '_')
-      .slice(0, 30);
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e6);
-    cb(null, `theme_${sanitizedBase}_${uniqueSuffix}${ext}`);
-  },
-});
+// Multer Memory Storage for Theme Assets (Prevents EROFS error on Vercel Serverless)
+const storage = multer.memoryStorage();
 
 const uploadThemeImage = multer({
   storage,
@@ -125,14 +107,66 @@ const uploadThemeAsset = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No image file uploaded.' });
     }
 
-    // Relative URL accessible via Express static serving
-    const relativeUrl = `/uploads/${req.file.filename}`;
+    let uploadedUrl = null;
+    let fileId = null;
+
+    // 1. Primary: Upload to Cloudinary CDN (Works seamlessly in serverless / Vercel)
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'quiz-system/theme',
+            resource_type: 'image',
+          },
+          (error, res) => {
+            if (error) return reject(error);
+            resolve(res);
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+
+      if (result && result.secure_url) {
+        uploadedUrl = result.secure_url;
+        fileId = result.public_id;
+      }
+    } catch (cloudErr) {
+      console.warn('Cloudinary upload failed for theme asset, trying fallback:', cloudErr.message || cloudErr);
+    }
+
+    // 2. Secondary: If Cloudinary fails and local disk is writable (development / non-Vercel)
+    if (!uploadedUrl && !process.env.VERCEL) {
+      try {
+        const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
+        const sanitizedBase = path
+          .basename(req.file.originalname, ext)
+          .replace(/[^a-zA-Z0-9_-]/g, '_')
+          .slice(0, 30);
+        const filename = `theme_${sanitizedBase}_${Date.now()}${ext}`;
+        fs.writeFileSync(path.join(uploadDir, filename), req.file.buffer);
+        uploadedUrl = `/uploads/${filename}`;
+        fileId = filename;
+      } catch (diskErr) {
+        console.warn('Local disk write failed:', diskErr.message);
+      }
+    }
+
+    // 3. Guaranteed Serverless Fallback: Base64 Data URI (Never throws EROFS error)
+    if (!uploadedUrl) {
+      const mime = req.file.mimetype || 'image/jpeg';
+      uploadedUrl = `data:${mime};base64,${req.file.buffer.toString('base64')}`;
+      fileId = `theme_data_${Date.now()}`;
+    }
 
     res.status(200).json({
       success: true,
       message: 'Theme asset uploaded successfully',
-      url: relativeUrl,
-      filename: req.file.filename,
+      url: uploadedUrl,
+      filename: fileId,
     });
   } catch (error) {
     next(error);

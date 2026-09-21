@@ -12,7 +12,6 @@ import {
   Building2,
   ArrowLeft,
   ChevronRight,
-  Sparkles,
   ShieldCheck,
 } from 'lucide-react';
 import { IQuizSummary, IStudentProfile } from './types';
@@ -82,8 +81,7 @@ const QuizInstructionsViewComponent: React.FC<QuizInstructionsViewProps> = ({
           </div>
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2d7995]/10 text-[#194c5f] border border-[#2d7995]/25 text-xs font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-[#2d7995]" />
-            <span>Eduline Publishers Assessment</span>
+            <span>Eduline Publishers Quiz</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -149,15 +147,15 @@ const QuizInstructionsViewComponent: React.FC<QuizInstructionsViewProps> = ({
               </div>
             </div>
 
-            {/* 4. Medium of Assessment */}
+            {/* 4. Medium of Quiz */}
             <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 flex items-start gap-3 hover:border-[#2d7995]/40 hover:bg-white transition duration-200">
               <div className="w-9 h-9 rounded-xl bg-[#2d7995]/10 text-[#2d7995] flex items-center justify-center shrink-0 font-bold">
                 <Globe className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-xs font-bold text-slate-500 block">Medium of Assessment</span>
+                <span className="text-xs font-bold text-slate-500 block">Medium of Quiz</span>
                 <span className="text-sm font-black text-slate-900 block mt-0.5">
-                  Language of the quiz – {mediumOfQuiz}
+                  {mediumOfQuiz}
                 </span>
                 <span className="text-[11px] text-slate-500 block mt-0.5">
                   Standardized questions with single-attempt integrity.

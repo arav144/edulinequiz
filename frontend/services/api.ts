@@ -206,7 +206,7 @@ export async function apiStudentLogin(email: string, pin: string) {
 
 export interface IRegisterStudentPayload {
   firstName: string;
-  lastName: string;
+  lastName?: string;
   email: string;
   pin: string;
   confirmPin?: string;

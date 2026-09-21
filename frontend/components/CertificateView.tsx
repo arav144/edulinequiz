@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Download, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Download, ArrowLeft, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { ISubmissionResult, Language, TRANSLATIONS } from './types';
 
 interface CertificateViewProps {
@@ -27,6 +27,8 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   const t = TRANSLATIONS[lang];
   const isHindiMode = lang === 'hi';
   const [downloadingImg, setDownloadingImg] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const studentDisplayName = submissionResult.studentName || 'Student';
   const rawClass = submissionResult.className || classNameVal || '';
@@ -71,130 +73,160 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
 
   const isPassed = submissionResult.result === 'Pass';
 
-  // Client-side high-resolution Certificate Image download using HTML Canvas
+  // Draw certificate on high-resolution canvas
+  const renderCertificateOnCanvas = async (targetCanvas: HTMLCanvasElement) => {
+    const ctx = targetCanvas.getContext('2d');
+    if (!ctx) return;
+
+    if (document.fonts) {
+      await document.fonts.ready;
+    }
+
+    const bgImg = new Image();
+    bgImg.crossOrigin = 'anonymous';
+
+    await new Promise<void>((resolve, reject) => {
+      bgImg.onload = () => resolve();
+      bgImg.onerror = () => reject(new Error('Failed to load certificate template image'));
+      bgImg.src = '/img/certificate_framepdf.jpg';
+    });
+
+    const W = bgImg.naturalWidth || 2560;
+    const H = bgImg.naturalHeight || 1846;
+    targetCanvas.width = W;
+    targetCanvas.height = H;
+
+    // 1. Draw Template Frame Image
+    ctx.drawImage(bgImg, 0, 0, W, H);
+
+    // Proportional font sizing: baseline 1846px height
+    const fontScale = H / 1846;
+
+    const nameFontSize = Math.round(72 * fontScale);
+    const classFontSize = Math.round(40 * fontScale);
+    const schoolFontSize = Math.round(38 * fontScale);
+    const marksFontSize = Math.round(42 * fontScale);
+    const percentageFontSize = Math.round(42 * fontScale);
+    const resultFontSize = Math.round(40 * fontScale);
+    const dateFontSize = Math.round(32 * fontScale);
+    const certIdFontSize = Math.round(31 * fontScale);
+
+    ctx.fillStyle = '#0F172A';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 1. Candidate Name (Center X = 50%, Center Y = 52.5%)
+    let curNameSize = nameFontSize;
+    ctx.font = `bold ${curNameSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+    const maxNameW = W * 0.58;
+    while (ctx.measureText(studentDisplayName).width > maxNameW && curNameSize > 30) {
+      curNameSize -= 3;
+      ctx.font = `bold ${curNameSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+    }
+    ctx.fillText(studentDisplayName, W * 0.50, H * 0.525);
+
+    // 2. Class (Center X = 39.0%, Y = 68.6%)
+    ctx.font = `bold ${classFontSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+    ctx.fillText(displayClass, W * 0.390, H * 0.686);
+
+    // 3. School / Vidyalay (Left X = 61.0%, Y = 68.6%)
+    ctx.textAlign = 'left';
+    let curSchoolSize = schoolFontSize;
+    ctx.font = `bold ${curSchoolSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+    const maxSchoolW = W * 0.22;
+    while (ctx.measureText(displaySchool).width > maxSchoolW && curSchoolSize > 20) {
+      curSchoolSize -= 2;
+      ctx.font = `bold ${curSchoolSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+    }
+    ctx.fillText(displaySchool, W * 0.610, H * 0.686);
+
+    // 4. Score Box: Marks (Center X = 25.8%, Y = 73.0%)
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${marksFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
+    ctx.fillText(`${submissionResult.score} / ${submissionResult.totalQuestions}`, W * 0.258, H * 0.730);
+
+    // 5. Score Box: Percentage (Center X = 55.7%, Y = 73.0%)
+    ctx.font = `bold ${percentageFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
+    ctx.fillText(`${submissionResult.percentage}%`, W * 0.557, H * 0.730);
+
+    // 6. Score Box: Result (Center X = 81.1%, Y = 73.0%)
+    const pctVal = submissionResult.percentage ?? 0;
+    let displayResult = '';
+    let resultColor = '#15803D';
+
+    if (pctVal >= 90) {
+      displayResult = isHindiMode ? 'उत्कृष्ट' : 'Outstanding';
+      resultColor = '#15803D';
+    } else if (pctVal >= 75) {
+      displayResult = isHindiMode ? 'अति उत्तम' : 'Very Good';
+      resultColor = '#15803D';
+    } else if (pctVal >= 60) {
+      displayResult = isHindiMode ? 'सराहनीय' : 'Good Effort';
+      resultColor = '#0284C7';
+    } else if (pctVal >= 50) {
+      displayResult = isHindiMode ? 'उत्तीर्ण' : 'Passed';
+      resultColor = '#0284C7';
+    } else {
+      displayResult = isHindiMode ? 'पुनः प्रयास करें' : 'Better Luck Next Time';
+      resultColor = '#D97706';
+    }
+
+    ctx.fillStyle = resultColor;
+    let curResultSize = displayResult.length > 15 ? Math.round(resultFontSize * 0.65) : resultFontSize;
+    ctx.font = `bold ${curResultSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+    const maxResultW = W * 0.12;
+    while (ctx.measureText(displayResult).width > maxResultW && curResultSize > 14) {
+      curResultSize -= 2;
+      ctx.font = `bold ${curResultSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
+    }
+    ctx.fillText(displayResult, W * 0.811, H * 0.730);
+
+    // 7. Date (Center X = 30.4%, Y = 79.8%)
+    ctx.fillStyle = '#1E293B';
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${dateFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
+    ctx.fillText(dateStr, W * 0.304, H * 0.798);
+
+    // 8. Certificate ID (Center X = 30.4%, Y = 84.5%)
+    ctx.font = `bold ${certIdFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
+    ctx.fillText(certId, W * 0.304, H * 0.845);
+  };
+
+  // Render to on-screen canvas when mounted or updated
+  useEffect(() => {
+    let active = true;
+    if (canvasRef.current) {
+      renderCertificateOnCanvas(canvasRef.current)
+        .then(() => {
+          if (active) setCanvasReady(true);
+        })
+        .catch((err) => {
+          console.error('Canvas render error:', err);
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [
+    studentDisplayName,
+    displayClass,
+    displaySchool,
+    submissionResult.score,
+    submissionResult.totalQuestions,
+    submissionResult.percentage,
+    dateStr,
+    certId,
+    isHindiMode,
+  ]);
+
+  // Client-side high-resolution Certificate Image download
   const handleDownloadImage = async () => {
     try {
       setDownloadingImg(true);
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not initialize canvas context');
-
-      // Ensure browser web fonts are loaded
-      if (document.fonts) {
-        await document.fonts.ready;
+      if (!canvasRef.current) {
+        throw new Error('Certificate preview not ready yet');
       }
-
-      const bgImg = new Image();
-      bgImg.crossOrigin = 'anonymous';
-
-      await new Promise<void>((resolve, reject) => {
-        bgImg.onload = () => resolve();
-        bgImg.onerror = () => reject(new Error('Failed to load certificate template image'));
-        bgImg.src = '/img/certificate_framepdf.jpg';
-      });
-
-      const W = bgImg.naturalWidth || 2560;
-      const H = bgImg.naturalHeight || 1846;
-      canvas.width = W;
-      canvas.height = H;
-
-      // 1. Draw Template Frame Image
-      ctx.drawImage(bgImg, 0, 0, W, H);
-
-      // Proportional font sizing: baseline 1846px height
-      const fontScale = H / 1846;
-
-      const nameFontSize = Math.round(72 * fontScale);
-      const classFontSize = Math.round(40 * fontScale);
-      const schoolFontSize = Math.round(38 * fontScale);
-      const marksFontSize = Math.round(42 * fontScale);
-      const percentageFontSize = Math.round(42 * fontScale);
-      const resultFontSize = Math.round(40 * fontScale);
-      const dateFontSize = Math.round(32 * fontScale);
-      const certIdFontSize = Math.round(31 * fontScale);
-
-      ctx.fillStyle = '#0F172A';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      // 1. Candidate Name (Empty space Y=905..1065, Center Y = 52.5%)
-      let curNameSize = nameFontSize;
-      ctx.font = `bold ${curNameSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
-      const maxNameW = W * 0.58;
-      while (ctx.measureText(studentDisplayName).width > maxNameW && curNameSize > 30) {
-        curNameSize -= 3;
-        ctx.font = `bold ${curNameSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
-      }
-      ctx.fillText(studentDisplayName, W * 0.50, H * 0.525);
-
-      // 2. Class (Underline Y = 69.88%, Underline X = 33.01%..44.92%, Center X = 38.96%)
-      ctx.font = `bold ${classFontSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
-      ctx.fillText(displayClass, W * 0.390, H * 0.686);
-
-      // 3. School / Vidyalay (Underline Y = 69.88%, Underline X = 60.90%..72.81%, Left X = 61.0%)
-      ctx.textAlign = 'left';
-      let curSchoolSize = schoolFontSize;
-      ctx.font = `bold ${curSchoolSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
-      const maxSchoolW = W * 0.22;
-      while (ctx.measureText(displaySchool).width > maxSchoolW && curSchoolSize > 20) {
-        curSchoolSize -= 2;
-        ctx.font = `bold ${curSchoolSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
-      }
-      ctx.fillText(displaySchool, W * 0.610, H * 0.686);
-
-      // 4. Score Box: Marks (Underline Y = 74.32%, Underline X = 19.84%..31.76%, Center X = 25.80%)
-      ctx.textAlign = 'center';
-      ctx.font = `bold ${marksFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
-      ctx.fillText(`${submissionResult.score} / ${submissionResult.totalQuestions}`, W * 0.258, H * 0.730);
-
-      // 5. Score Box: Percentage (Underline Y = 74.32%, Underline X = 49.73%..61.64%, Center X = 55.68%)
-      ctx.font = `bold ${percentageFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
-      ctx.fillText(`${submissionResult.percentage}%`, W * 0.557, H * 0.730);
-
-      // 6. Score Box: Result (Underline Y = 74.32%, Underline X = 75.08%..87.03%, Center X = 81.05%)
-      const pctVal = submissionResult.percentage ?? 0;
-      let displayResult = '';
-      let resultColor = '#15803D';
-
-      if (pctVal >= 90) {
-        displayResult = isHindiMode ? 'उत्कृष्ट' : 'Outstanding';
-        resultColor = '#15803D';
-      } else if (pctVal >= 75) {
-        displayResult = isHindiMode ? 'अति उत्तम' : 'Very Good';
-        resultColor = '#15803D';
-      } else if (pctVal >= 60) {
-        displayResult = isHindiMode ? 'सराहनीय' : 'Good Effort';
-        resultColor = '#0284C7';
-      } else if (pctVal >= 50) {
-        displayResult = isHindiMode ? 'उत्तीर्ण' : 'Passed';
-        resultColor = '#0284C7';
-      } else {
-        displayResult = isHindiMode ? 'पुनः प्रयास करें' : 'Better Luck Next Time';
-        resultColor = '#D97706';
-      }
-
-      ctx.fillStyle = resultColor;
-      let curResultSize = displayResult.length > 15 ? Math.round(resultFontSize * 0.65) : resultFontSize;
-      ctx.font = `bold ${curResultSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
-      const maxResultW = W * 0.12;
-      while (ctx.measureText(displayResult).width > maxResultW && curResultSize > 14) {
-        curResultSize -= 2;
-        ctx.font = `bold ${curResultSize}px "Plus Jakarta Sans", "Noto Sans Devanagari", "Segoe UI", sans-serif`;
-      }
-      ctx.fillText(displayResult, W * 0.811, H * 0.730);
-
-      // 7. Date (Underline Y = 80.93%, Underline X = 24.41%..36.33%, Center X = 30.37%)
-      ctx.fillStyle = '#1E293B';
-      ctx.textAlign = 'center';
-      ctx.font = `bold ${dateFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
-      ctx.fillText(dateStr, W * 0.304, H * 0.798);
-
-      // 8. Certificate ID (Underline Y = 85.59%, Underline X = 24.38%..36.29%, Center X = 30.33%)
-      ctx.font = `bold ${certIdFontSize}px "JetBrains Mono", "Plus Jakarta Sans", monospace`;
-      ctx.fillText(certId, W * 0.304, H * 0.845);
-
-      // Trigger Download
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.95);
       const link = document.createElement('a');
       link.href = dataUrl;
       link.download = `Certificate_${studentDisplayName.replace(/\s+/g, '_')}.jpg`;
@@ -254,28 +286,28 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
           </button>
         </div>
 
-        {/* DESKTOP VIEW (>= sm): Full buttons */}
+        {/* DESKTOP VIEW (>= sm): Full Action Toolbar */}
         <div className="hidden sm:flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* OPTION 1: Direct Clean PDF Download Button */}
+          <div className="flex items-center gap-2.5">
+            {/* Download PDF Button */}
             <button
               type="button"
               onClick={() => onDownloadPdf('certificate')}
               disabled={downloadingPdf === 'certificate'}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black text-xs shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all duration-200 flex items-center gap-2 cursor-pointer disabled:opacity-60 select-none"
             >
-              <Download className="w-4 h-4 text-emerald-200" />
+              <Download className="w-4 h-4 text-amber-300" />
               <span>
-                {downloadingPdf === 'certificate' ? 'Downloading Certificate (PDF)...' : 'Download Certificate (PDF)'}
+                {downloadingPdf === 'certificate' ? 'Downloading PDF...' : 'Download Certificate (PDF)'}
               </span>
             </button>
 
-            {/* OPTION 2: Direct Image (JPG) Download Button */}
+            {/* Download Image Button */}
             <button
               type="button"
               onClick={handleDownloadImage}
               disabled={downloadingImg}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#2d7995] to-[#1f576c] hover:from-[#266881] hover:to-[#1a4a5b] text-white text-xs sm:text-sm font-extrabold shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center gap-2 cursor-pointer select-none disabled:opacity-60"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#2d7995] to-[#1f576c] hover:from-[#24677f] hover:to-[#174454] text-white font-black text-xs shadow-md shadow-[#2d7995]/20 hover:shadow-lg transition-all duration-200 flex items-center gap-2 cursor-pointer disabled:opacity-60 select-none"
             >
               <ImageIcon className="w-4 h-4 text-white" />
               <span>
@@ -296,161 +328,25 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
         </div>
       </div>
 
-      {/* Framed Certificate of Achievement using certificate_framepdf.jpeg */}
+      {/* Framed Certificate of Achievement */}
       <div
         id="printableCertificate"
         className="relative mx-auto w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-amber-300/40 select-none bg-white"
       >
-        <div className="relative w-full aspect-[2560/1846]">
-          {/* Certificate Template Image */}
-          <img
-            src="/img/certificate_framepdf.jpg"
-            alt="Certificate of Achievement"
-            className="w-full h-full object-contain block pointer-events-none"
+        <div className="relative w-full aspect-[2560/1846] bg-slate-50 flex items-center justify-center">
+          {!canvasReady && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-50/90 z-10">
+              <Loader2 className="w-8 h-8 text-[#2d7995] animate-spin" />
+              <span className="text-xs font-bold text-slate-500">Loading Certificate...</span>
+            </div>
+          )}
+          {/* Live Full-Resolution Pixel-Perfect Canvas */}
+          <canvas
+            ref={canvasRef}
+            className={`w-full h-auto block rounded-2xl transition-opacity duration-300 ${
+              canvasReady ? 'opacity-100' : 'opacity-0'
+            }`}
           />
-
-          {/* 1. Candidate Name (Empty space Y=905..1065, Center Y = 52.5%) */}
-          <div
-            className="absolute flex items-center justify-center pointer-events-none"
-            style={{
-              top: '49.5%',
-              left: '15.0%',
-              width: '70.0%',
-              height: '6.0%',
-            }}
-          >
-            <span className="font-hindi font-black text-slate-950 tracking-wide text-base sm:text-2xl md:text-3xl lg:text-4xl text-center leading-normal px-2 truncate">
-              {studentDisplayName}
-            </span>
-          </div>
-
-          {/* 2. Candidate Class (Underline X = 33.0%..44.9%, Width = 11.9%, Y = 69.9%) */}
-          <div
-            className="absolute flex items-center justify-center pointer-events-none"
-            style={{
-              top: '67.0%',
-              left: '33.0%',
-              width: '11.9%',
-              height: '3.6%',
-            }}
-          >
-            <span className="font-hindi font-bold text-slate-900 text-[11px] sm:text-sm md:text-base lg:text-lg text-center truncate">
-              {displayClass}
-            </span>
-          </div>
-
-          {/* 3. Candidate School (Underline X = 60.9%..72.8%+, Left = 61.0%, Y = 69.9%) */}
-          <div
-            className="absolute flex items-center justify-start pointer-events-none"
-            style={{
-              top: '67.0%',
-              left: '61.0%',
-              width: '23.0%',
-              height: '3.6%',
-            }}
-          >
-            <span className="font-hindi font-bold text-slate-900 text-[11px] sm:text-sm md:text-base lg:text-lg text-left truncate pl-1">
-              {displaySchool}
-            </span>
-          </div>
-
-          {/* 4. Score: Marks (Underline X = 19.8%..31.8%, Width = 11.9%, Y = 74.3%) */}
-          <div
-            className="absolute flex items-center justify-center pointer-events-none"
-            style={{
-              top: '71.6%',
-              left: '19.8%',
-              width: '11.9%',
-              height: '3.4%',
-            }}
-          >
-            <span className="font-mono font-black text-slate-950 text-[8px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap">
-              {submissionResult.score} / {submissionResult.totalQuestions}
-            </span>
-          </div>
-
-          {/* 5. Score: Percentage (Underline X = 49.7%..61.6%, Width = 11.9%, Y = 74.3%) */}
-          <div
-            className="absolute flex items-center justify-center pointer-events-none"
-            style={{
-              top: '71.6%',
-              left: '49.8%',
-              width: '11.9%',
-              height: '3.4%',
-            }}
-          >
-            <span className="font-mono font-black text-slate-950 text-[10px] sm:text-xs md:text-sm lg:text-base">
-              {submissionResult.percentage}%
-            </span>
-          </div>
-
-          {/* 6. Score: Result (Underline X = 75.1%..87.0%, Width = 11.9%, Y = 74.3%) */}
-          <div
-            className="absolute flex items-center justify-center pointer-events-none"
-            style={{
-              top: '71.6%',
-              left: '75.1%',
-              width: '12.0%',
-              height: '3.4%',
-            }}
-          >
-            <span
-              className={`font-hindi font-black whitespace-nowrap text-center tracking-tight leading-none ${
-                (() => {
-                  const p = submissionResult.percentage ?? 0;
-                  const text = p >= 90 ? (isHindiMode ? 'उत्कृष्ट' : 'Outstanding')
-                    : p >= 75 ? (isHindiMode ? 'अति उत्तम' : 'Very Good')
-                    : p >= 60 ? (isHindiMode ? 'सराहनीय' : 'Good Effort')
-                    : p >= 50 ? (isHindiMode ? 'उत्तीर्ण' : 'Passed')
-                    : (isHindiMode ? 'पुनः प्रयास करें' : 'Better Luck Next Time');
-                  return text.length > 15
-                    ? 'text-[7px] sm:text-[9px] md:text-[10px] lg:text-[11px]'
-                    : 'text-[9px] sm:text-xs md:text-sm lg:text-base';
-                })()
-              } ${
-                (submissionResult.percentage ?? 0) >= 50 ? 'text-emerald-800' : 'text-amber-700'
-              }`}
-            >
-              {(() => {
-                const p = submissionResult.percentage ?? 0;
-                if (p >= 90) return isHindiMode ? 'उत्कृष्ट' : 'Outstanding';
-                if (p >= 75) return isHindiMode ? 'अति उत्तम' : 'Very Good';
-                if (p >= 60) return isHindiMode ? 'सराहनीय' : 'Good Effort';
-                if (p >= 50) return isHindiMode ? 'उत्तीर्ण' : 'Passed';
-                return isHindiMode ? 'पुनः प्रयास करें' : 'Better Luck Next Time';
-              })()}
-            </span>
-          </div>
-
-          {/* 7. Issue Date (Underline X = 24.4%..36.3%, Width = 11.9%, Y = 80.9%) */}
-          <div
-            className="absolute flex items-center justify-center pointer-events-none"
-            style={{
-              top: '78.5%',
-              left: '24.5%',
-              width: '11.9%',
-              height: '3.0%',
-            }}
-          >
-            <span className="font-mono font-bold text-slate-900 text-[10px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap text-center">
-              {dateStr}
-            </span>
-          </div>
-
-          {/* 8. Certificate ID (Underline X = 24.4%..36.3%, Width = 11.9%, Y = 85.6%) */}
-          <div
-            className="absolute flex items-center justify-center pointer-events-none"
-            style={{
-              top: '83.2%',
-              left: '24.5%',
-              width: '11.9%',
-              height: '3.0%',
-            }}
-          >
-            <span className="font-mono font-bold text-slate-900 text-[9px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap tracking-tight text-center">
-              {certId}
-            </span>
-          </div>
         </div>
       </div>
     </div>

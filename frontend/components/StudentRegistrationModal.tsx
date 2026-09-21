@@ -237,10 +237,6 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
       setError('First Name is required (minimum 2 characters).');
       return;
     }
-    if (!lastName.trim()) {
-      setError('Last Name is required.');
-      return;
-    }
     if (!schoolName.trim() || schoolName.trim().length < 2) {
       setError('Name of School is required.');
       return;
@@ -308,7 +304,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
       if (view === 'edit') {
         const payload = {
           firstName: firstName.trim(),
-          lastName: lastName.trim(),
+          lastName: (lastName || '').trim(),
           schoolName: schoolName.trim(),
           class: rawClass,
           className: `Class ${rawClass}`,
@@ -340,7 +336,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
           pin: pin.trim(),
           confirmPin: confirmPin.trim(),
           firstName: firstName.trim(),
-          lastName: lastName.trim(),
+          lastName: (lastName || '').trim(),
           schoolName: schoolName.trim(),
           class: rawClass,
           dateOfBirth: dob.trim(),
@@ -620,14 +616,13 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Last Name <span className="text-rose-500">*</span>
+                    Last Name
                   </label>
                   <input
                     type="text"
-                    required
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Last Name (e.g. Sharma)"
+                    placeholder="Last Name (Optional)"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200/90 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-[#2d7995] focus:ring-4 focus:ring-[#2d7995]/15 text-xs sm:text-sm font-semibold text-slate-900 outline-none transition"
                   />
                 </div>

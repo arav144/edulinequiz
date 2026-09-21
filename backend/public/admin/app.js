@@ -333,7 +333,7 @@ function renderQuizzes() {
           <div class="flex flex-wrap gap-4 text-xs text-slate-400 mb-3">
             <span>${q.numberOfQuestions} questions required</span>
             <span>${q.language === 'hi' ? 'Hindi' : 'English'}</span>
-            <span>${q.timePerQuestion || 30}s / question</span>
+            <span>${q.timePerQuestion || 40}s / question</span>
             <span>Passing: ${q.passingPercentage || 50}%</span>
             <span>${q.attemptCount || 0} attempts</span>
             <span>Created: ${fmtDate(q.createdAt)}</span>
@@ -390,7 +390,7 @@ async function openQuizModal(quiz = null) {
   document.getElementById('quizId').value = isEdit ? fullQuiz._id : '';
   document.getElementById('quizName').value = isEdit ? fullQuiz.name : '';
   document.getElementById('quizNumQuestions').value = isEdit ? fullQuiz.numberOfQuestions : '10';
-  document.getElementById('quizTimePerQuestion').value = isEdit ? (fullQuiz.timePerQuestion || 30) : 30;
+  document.getElementById('quizTimePerQuestion').value = isEdit ? (fullQuiz.timePerQuestion || 40) : 40;
   document.getElementById('quizPassingPct').value = isEdit ? (fullQuiz.passingPercentage || 50) : 50;
   document.getElementById('quizLanguage').value = isEdit ? (fullQuiz.language || 'en') : 'en';
   document.getElementById('quizTargetClass').value = isEdit ? (fullQuiz.targetClass || 'All') : 'All';
@@ -763,7 +763,7 @@ async function saveQuizBuilder(targetStatus = 'Draft') {
   const name = document.getElementById('quizName').value.trim();
   const subjectId = document.getElementById('quizSubjectId').value;
   const numberOfQuestions = Number(document.getElementById('quizNumQuestions').value) || 0;
-  const timePerQuestion = Number(document.getElementById('quizTimePerQuestion').value) || 30;
+  const timePerQuestion = Number(document.getElementById('quizTimePerQuestion').value) || 40;
   const passingPercentage = Number(document.getElementById('quizPassingPct').value) || 50;
   const language = document.getElementById('quizLanguage').value || 'en';
   const targetClass = document.getElementById('quizTargetClass')?.value || 'All';

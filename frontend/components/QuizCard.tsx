@@ -254,9 +254,8 @@ const QuizCardComponent: React.FC<QuizCardProps> = ({ quiz, selectedClassName, o
       </div>
 
       {/* ── Footer ─────────────────────────────────────── */}
-      <div className="px-4 py-2 bg-[#2d7995] flex items-center justify-between text-[10px]">
-        <span className="text-white/80 font-medium">Eduline Publishers</span>
-        <span className="text-white font-black tracking-wide">Digital Portal</span>
+      <div className="px-4 py-2 bg-[#2d7995] flex items-center justify-center text-[10px]">
+        <span className="text-white font-bold tracking-wide">Eduline Publishers</span>
       </div>
     </div>
   );
