@@ -33,9 +33,19 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   // Remove 'Class' or 'कक्षा' prefix since 'कक्षा:' is already printed on the certificate template
   const displayClass = rawClass ? (rawClass.replace(/^(class|कक्षा)\s*/i, '').trim() || rawClass) : '---';
   const displaySchool = submissionResult.schoolName || schoolNameVal || 'विद्यालय';
+  function safeDate(raw?: string | Date | null): Date {
+    if (!raw) return new Date(NaN);
+    if (raw instanceof Date) return raw;
+    let s = String(raw).trim();
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s)) {
+      s = s.replace(/\s+/, 'T');
+    }
+    return new Date(s);
+  }
+
   const getFormatDate = (val: any) => {
     try {
-      const d = val ? new Date(val) : new Date();
+      const d = val ? safeDate(val) : new Date();
       if (isNaN(d.getTime())) return new Date().toLocaleDateString('en-GB');
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -49,7 +59,7 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   const dateStr = getFormatDate(submissionResult.submittedAt);
   const certYear = (() => {
     try {
-      const d = submissionResult.submittedAt ? new Date(submissionResult.submittedAt) : new Date();
+      const d = submissionResult.submittedAt ? safeDate(submissionResult.submittedAt) : new Date();
       return isNaN(d.getTime()) ? new Date().getFullYear() : d.getFullYear();
     } catch {
       return new Date().getFullYear();

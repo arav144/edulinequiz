@@ -24,13 +24,23 @@ export function formatQuizTitle(rawName: string = '', _selectedClassName?: strin
   return baseName;
 }
 
+function safeDate(raw?: string | Date | null): Date {
+  if (!raw) return new Date(NaN);
+  if (raw instanceof Date) return raw;
+  let s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s)) {
+    s = s.replace(/\s+/, 'T');
+  }
+  return new Date(s);
+}
+
 /**
  * Formats dates into "17 Aug, 2026" / "30 Sep, 2026" format
  */
 export function formatDisplayDate(dateInput?: string | Date, fallback: string = '13 Sep, 2026'): string {
   if (!dateInput) return fallback;
   try {
-    const d = new Date(dateInput);
+    const d = safeDate(dateInput);
     if (isNaN(d.getTime())) return fallback;
     const day = d.getDate();
     const strDay = day < 10 ? `0${day}` : `${day}`;
@@ -49,7 +59,7 @@ export function formatDisplayDate(dateInput?: string | Date, fallback: string = 
 export function formatOrdinalDate(dateInput?: string | Date, fallback: string = '13th Sep, 2026'): string {
   if (!dateInput) return fallback;
   try {
-    const d = new Date(dateInput);
+    const d = safeDate(dateInput);
     if (isNaN(d.getTime())) return fallback;
     const day = d.getDate();
     const j = day % 10, k = day % 100;
@@ -70,7 +80,7 @@ export function formatOrdinalDate(dateInput?: string | Date, fallback: string = 
 export function formatDisplayTime(dateInput?: string | Date, fallback: string = '12:00 PM'): string {
   if (!dateInput) return fallback;
   try {
-    const d = new Date(dateInput);
+    const d = safeDate(dateInput);
     if (isNaN(d.getTime())) return fallback;
     let hours = d.getHours();
     const minutes = d.getMinutes();

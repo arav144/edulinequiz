@@ -18,9 +18,18 @@ function resolveBannerUrl(url?: string): string {
   return u;
 }
 
+function safeDate(raw?: string | Date | null): Date {
+  if (!raw) return new Date(NaN);
+  if (raw instanceof Date) return raw;
+  let s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s)) {
+    s = s.replace(/\s+/, 'T');
+  }
+  return new Date(s);
+}
+
 function fmtDate(raw?: string | Date | null): string {
-  if (!raw) return '—';
-  const d = typeof raw === 'string' ? new Date(raw) : raw;
+  const d = safeDate(raw);
   if (isNaN(d.getTime())) return '—';
   const dateStr = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
@@ -59,10 +68,10 @@ const QuizCardComponent: React.FC<QuizCardProps> = ({ quiz, selectedClassName, o
   const durationMins = (() => {
     // 1. If scheduled with start & end times within 24 hours (e.g. 1:00 PM to 2:00 PM = 60 mins)
     if (quiz.startDate && quiz.endDate) {
-      const s = new Date(quiz.startDate).getTime();
-      const e = new Date(quiz.endDate).getTime();
+      const s = safeDate(quiz.startDate).getTime();
+      const e = safeDate(quiz.endDate).getTime();
       const diff = Math.round((e - s) / (1000 * 60));
-      if (diff > 0 && diff <= 1440) return diff;
+      if (!isNaN(diff) && diff > 0 && diff <= 1440) return diff;
     }
     // 2. From timing string if specified (e.g. "01:00 Hours" or "1 Hr")
     const fromTiming = parseTimingMinutes(quiz.timing);
@@ -90,14 +99,16 @@ const QuizCardComponent: React.FC<QuizCardProps> = ({ quiz, selectedClassName, o
       return quiz.timing;
     }
     if (quiz.startDate && quiz.endDate) {
-      const s = new Date(quiz.startDate);
-      const e = new Date(quiz.endDate);
-      const sHasTime = s.getHours() !== 0 || s.getMinutes() !== 0;
-      const eHasTime = e.getHours() !== 0 || e.getMinutes() !== 0;
-      if (sHasTime || eHasTime) {
-        const sTime = s.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
-        const eTime = e.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
-        return `${sTime} – ${eTime}`;
+      const s = safeDate(quiz.startDate);
+      const e = safeDate(quiz.endDate);
+      if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+        const sHasTime = s.getHours() !== 0 || s.getMinutes() !== 0;
+        const eHasTime = e.getHours() !== 0 || e.getMinutes() !== 0;
+        if (sHasTime || eHasTime) {
+          const sTime = s.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+          const eTime = e.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+          return `${sTime} – ${eTime}`;
+        }
       }
     }
     return quiz.timing || null;

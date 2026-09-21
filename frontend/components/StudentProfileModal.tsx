@@ -13,6 +13,16 @@ interface StudentProfileModalProps {
   onViewResult?: (attempt: any) => void;
 }
 
+function safeDate(raw?: string | Date | null): Date {
+  if (!raw) return new Date(NaN);
+  if (raw instanceof Date) return raw;
+  let s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s)) {
+    s = s.replace(/\s+/, 'T');
+  }
+  return new Date(s);
+}
+
 export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   isOpen,
   onClose,
@@ -174,7 +184,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-500 font-medium">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          {new Date(attempt.submittedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {safeDate(attempt.submittedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                         <span className={`px-2 py-0.5 rounded-md font-bold ${attempt.percentage >= 50 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
                           {attempt.score}/{attempt.totalQuestions} ({Math.round(attempt.percentage)}%)

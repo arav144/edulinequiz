@@ -79,10 +79,18 @@ const ConfirmSubmitModal = nextDynamic(
   { ssr: false }
 );
 
-// ── Helper to format date nicely ──────────────────────────────────
+function safeDate(raw?: string | Date | null): Date {
+  if (!raw) return new Date(NaN);
+  if (raw instanceof Date) return raw;
+  let s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(s)) {
+    s = s.replace(/\s+/, 'T');
+  }
+  return new Date(s);
+}
+
 function fmtDate(raw?: string | Date | null): string {
-  if (!raw) return '';
-  const d = typeof raw === 'string' ? new Date(raw) : raw;
+  const d = safeDate(raw);
   if (isNaN(d.getTime())) return '';
   return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
