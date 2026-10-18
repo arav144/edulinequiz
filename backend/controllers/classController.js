@@ -1,15 +1,22 @@
 const ClassLevel = require('../models/ClassLevel');
 const Quiz = require('../models/Quiz');
+const cacheService = require('../services/cacheService');
 
 // @desc    Get active classes for student portal (public)
 // @route   GET /api/classes
 const getActiveClasses = async (req, res, next) => {
   try {
-    const classes = await ClassLevel.find({ isActive: true })
-      .sort({ order: 1, name: 1 })
-      .populate('assignedQuizId', 'name numberOfQuestions timePerQuestion passingPercentage status')
-      .lean();
+    const classes = await cacheService.getOrSet(
+      'app_active_classes',
+      () =>
+        ClassLevel.find({ isActive: true })
+          .sort({ order: 1, name: 1 })
+          .populate('assignedQuizId', 'name numberOfQuestions timePerQuestion passingPercentage status')
+          .lean(),
+      300 // 5 minutes TTL
+    );
 
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
     res.status(200).json({
       success: true,
       count: classes.length,
@@ -19,6 +26,7 @@ const getActiveClasses = async (req, res, next) => {
     next(error);
   }
 };
+
 
 // @desc    Get all classes for admin console
 // @route   GET /api/admin/classes
@@ -67,6 +75,8 @@ const createClass = async (req, res, next) => {
       .populate('assignedQuizId', 'name numberOfQuestions status')
       .lean();
 
+    cacheService.del('app_active_classes');
+
     res.status(201).json({
       success: true,
       message: `Class "${cleanName}" added successfully.`,
@@ -101,6 +111,8 @@ const updateClass = async (req, res, next) => {
       .populate('assignedQuizId', 'name numberOfQuestions status')
       .lean();
 
+    cacheService.del('app_active_classes');
+
     res.status(200).json({
       success: true,
       message: `Class "${classDoc.name}" updated successfully.`,
@@ -123,6 +135,8 @@ const toggleClassActive = async (req, res, next) => {
 
     classDoc.isActive = !classDoc.isActive;
     await classDoc.save();
+
+    cacheService.del('app_active_classes');
 
     res.status(200).json({
       success: true,
@@ -162,6 +176,8 @@ const assignQuizToClass = async (req, res, next) => {
       .populate('assignedQuizId', 'name numberOfQuestions status')
       .lean();
 
+    cacheService.del('app_active_classes');
+
     res.status(200).json({
       success: true,
       message: `Quiz assigned to "${classDoc.name}" successfully.`,
@@ -184,6 +200,8 @@ const deleteClass = async (req, res, next) => {
 
     await ClassLevel.findByIdAndDelete(id);
 
+    cacheService.del('app_active_classes');
+
     res.status(200).json({
       success: true,
       message: `Class "${classDoc.name}" deleted successfully.`,
@@ -192,6 +210,7 @@ const deleteClass = async (req, res, next) => {
     next(error);
   }
 };
+
 
 module.exports = {
   getActiveClasses,

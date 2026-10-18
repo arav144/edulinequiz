@@ -117,11 +117,17 @@ const studentSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
+
 
 // Pre-save hook to synchronize aliases
 studentSchema.pre('save', function (next) {

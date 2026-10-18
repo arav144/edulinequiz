@@ -51,7 +51,7 @@ FRONTEND_URL=http://localhost:3000
 ADMIN_USERNAME=admin
   - Username for Admin Console authentication.
 
-ADMIN_PASSWORD=eduline@2026
+ADMIN_PASSWORD=your_secure_admin_password
   - Password for Admin Console authentication.
 
 --------------------------------------------------------------------------------

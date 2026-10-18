@@ -126,5 +126,12 @@ const quizSchema = new mongoose.Schema(
   }
 );
 
+// Indexes for high-concurrency portal and class queries
+quizSchema.index({ status: 1, isFeaturedOnPortal: 1, createdAt: -1 });
+quizSchema.index({ status: 1, createdAt: -1 });
+quizSchema.index({ scheduleBatchId: 1, status: 1 });
+quizSchema.index({ targetClass: 1, status: 1 });
+
 module.exports = mongoose.models.Quiz || mongoose.model('Quiz', quizSchema);
+
 

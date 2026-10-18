@@ -64,4 +64,8 @@ const questionSchema = new mongoose.Schema(
   }
 );
 
+// Index for subject-based fallback queries
+questionSchema.index({ subjectId: 1 });
+
 module.exports = mongoose.models.Question || mongoose.model('Question', questionSchema);
+

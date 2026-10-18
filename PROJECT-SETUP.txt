@@ -52,9 +52,9 @@ LOCATION: Quiz-System/backend/
    # SMTP_PASS=your_app_password
 
    # Cloudinary (Image & Audio Uploads)
-   CLOUDINARY_CLOUD_NAME=ulk2jofl
-   CLOUDINARY_API_KEY=284442367654776
-   CLOUDINARY_API_SECRET=lFeMLiQ4Vp5Xo-utWM3EwFvuPmg
+   CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+   CLOUDINARY_API_KEY=your_cloudinary_api_key
+   CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
 3. Start server:
    npm start          ← Production

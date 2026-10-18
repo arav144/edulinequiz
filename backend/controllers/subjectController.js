@@ -1,10 +1,17 @@
 const Subject = require('../models/Subject');
+const cacheService = require('../services/cacheService');
 
 // @desc  Get all subjects (public)
 // @route GET /api/subjects
 const getSubjects = async (req, res, next) => {
   try {
-    const subjects = await Subject.find().sort({ name: 1 }).lean();
+    const subjects = await cacheService.getOrSet(
+      'app_subjects_list',
+      () => Subject.find().select('_id name').sort({ name: 1 }).lean(),
+      300 // 5 minutes TTL
+    );
+
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
     res.status(200).json({ success: true, count: subjects.length, subjects });
   } catch (error) {
     next(error);
@@ -20,6 +27,7 @@ const createSubject = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Subject name is required.' });
     }
     const subject = await Subject.create({ name: name.trim() });
+    cacheService.del('app_subjects_list');
     res.status(201).json({ success: true, message: 'Subject created successfully', subject });
   } catch (error) {
     if (error.code === 11000) {
@@ -43,6 +51,8 @@ const updateSubject = async (req, res, next) => {
       { new: true, runValidators: true }
     );
     if (!subject) return res.status(404).json({ success: false, message: 'Subject not found.' });
+
+    cacheService.del('app_subjects_list');
     res.status(200).json({ success: true, message: 'Subject updated', subject });
   } catch (error) {
     if (error.code === 11000) {
@@ -58,6 +68,8 @@ const deleteSubject = async (req, res, next) => {
   try {
     const subject = await Subject.findByIdAndDelete(req.params.id);
     if (!subject) return res.status(404).json({ success: false, message: 'Subject not found.' });
+
+    cacheService.del('app_subjects_list');
     res.status(200).json({ success: true, message: 'Subject deleted successfully.' });
   } catch (error) {
     next(error);
@@ -65,3 +77,4 @@ const deleteSubject = async (req, res, next) => {
 };
 
 module.exports = { getSubjects, createSubject, updateSubject, deleteSubject };
+

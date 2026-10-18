@@ -1,9 +1,11 @@
 /**
  * Student API Client for Quiz System
  * Connects to NEXT_PUBLIC_API_URL or relative proxy
+ * Includes exponential backoff with jitter and automated JWT token refresh
  */
 
 const TOKEN_KEY = 'eduline_student_token';
+const REFRESH_TOKEN_KEY = 'eduline_student_refresh_token';
 const STUDENT_KEY = 'eduline_student_profile';
 
 export const getStudentToken = (): string | null => {
@@ -16,10 +18,33 @@ export const setStudentToken = (token: string): void => {
   localStorage.setItem(TOKEN_KEY, token);
 };
 
+export const getRefreshToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+};
+
+export const setRefreshToken = (token: string): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+};
+
 export const clearStudentToken = (): void => {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(STUDENT_KEY);
+
+  // Clear any persisted quiz answers on logout
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('quiz_answers_')) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {}
 };
 
 export const getCachedStudent = (): any | null => {
@@ -52,7 +77,54 @@ const getApiBaseUrl = (): string => {
   return 'http://localhost:5000';
 };
 
-async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+// Helper: Sleep with random jitter to prevent thundering herd
+const sleepWithJitter = (baseMs: number, attempt: number) => {
+  const exponential = Math.min(baseMs * Math.pow(2, attempt), 4000);
+  const jitter = Math.random() * 250;
+  return new Promise((resolve) => setTimeout(resolve, exponential + jitter));
+};
+
+// Singleton in-flight token refresh promise to prevent duplicate refresh calls
+let refreshPromise: Promise<string | null> | null = null;
+
+async function executeTokenRefresh(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  refreshPromise = (async () => {
+    try {
+      const baseUrl = getApiBaseUrl();
+      const refreshRes = await fetch(`${baseUrl}/api/auth/refresh-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      const refreshData = await refreshRes.json().catch(() => ({}));
+      if (refreshRes.ok && refreshData.token) {
+        setStudentToken(refreshData.token);
+        if (refreshData.refreshToken) {
+          setRefreshToken(refreshData.refreshToken);
+        }
+        return refreshData.token;
+      }
+      return null;
+    } catch {
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+async function apiRequest<T = any>(
+  endpoint: string,
+  options: RequestInit = {},
+  retries = 3
+): Promise<T> {
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
@@ -60,69 +132,116 @@ async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}):
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers as Record<string, string> || {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
 
-  try {
-    const res = await fetch(url, {
-      cache: 'no-store',
-      ...options,
-      headers,
-    });
+  let lastError: any = null;
 
-    const data = await res.json().catch(() => ({}));
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...options,
+        headers,
+      });
 
-    if (!res.ok) {
-      const error: any = new Error(data.message || `Server error (${res.status}): ${res.statusText}`);
-      error.status = res.status;
-      error.code = data.code;
-      error.data = data;
-      throw error;
-    }
+      // 1. Handle Automatic Token Refresh on 401 (Exam > 30 min duration resilience)
+      if (
+        res.status === 401 &&
+        endpoint !== '/api/auth/refresh-token' &&
+        endpoint !== '/api/auth/student-login'
+      ) {
+        const refreshedToken = await executeTokenRefresh();
+        if (refreshedToken) {
+          headers.Authorization = `Bearer ${refreshedToken}`;
+          // Retry original request immediately with new token
+          const retryRes = await fetch(url, { ...options, headers });
+          const retryData = await retryRes.json().catch(() => ({}));
+          if (!retryRes.ok) {
+            const error: any = new Error(retryData.message || `Server error (${retryRes.status}): ${retryRes.statusText}`);
+            error.status = retryRes.status;
+            error.code = retryData.code;
+            error.data = retryData;
+            throw error;
+          }
+          return retryData;
+        }
+      }
 
-    return data;
-  } catch (error: any) {
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !url.startsWith('http://localhost:5000')) {
-      try {
-        const fallbackUrl = `http://localhost:5000${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-        const fbRes = await fetch(fallbackUrl, {
-          cache: 'no-store',
-          ...options,
-          headers,
-        });
-        const fbData = await fbRes.json().catch(() => ({}));
-        if (fbRes.ok) return fbData;
-      } catch {
-        // Continue to throw original
+      // 2. Retry on 429 (Rate Limit), 503 (Database Busy / Warming up), or 504 (Gateway Timeout)
+      if ((res.status === 429 || res.status === 503 || res.status === 504) && attempt < retries) {
+        const retryHeader = res.headers.get('Retry-After');
+        const retryAfterMs = retryHeader ? parseInt(retryHeader, 10) * 1000 : 500;
+        await sleepWithJitter(retryAfterMs, attempt);
+        continue;
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const error: any = new Error(data.message || `Server error (${res.status}): ${res.statusText}`);
+        error.status = res.status;
+        error.code = data.code;
+        error.data = data;
+        throw error;
+      }
+
+      return data;
+    } catch (error: any) {
+      lastError = error;
+
+      // Retry on network drops / connection timeouts with exponential backoff & jitter
+      const isNetworkOrTimeoutErr =
+        error.name === 'AbortError' ||
+        (error.message && (
+          error.message.includes('Failed to fetch') ||
+          error.message.includes('NetworkError') ||
+          error.message.includes('timeout') ||
+          error.message.includes('aborted')
+        ));
+
+      if (isNetworkOrTimeoutErr && attempt < retries) {
+        await sleepWithJitter(500, attempt);
+        continue;
+      }
+
+      // Fallback for localhost testing
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && !url.startsWith('http://localhost:5000')) {
+        try {
+          const fallbackUrl = `http://localhost:5000${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+          const fbRes = await fetch(fallbackUrl, { ...options, headers });
+          if (fbRes.ok) return await fbRes.json();
+        } catch {}
+      }
+
+      if (attempt >= retries) {
+        break;
       }
     }
-    if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
-      throw new Error(
-        `Unable to reach examination server at ${baseUrl || 'backend'}. Please ensure the backend is running.`
-      );
-    }
-    throw error;
   }
+
+  if (lastError?.message && (lastError.message.includes('Failed to fetch') || lastError.message.includes('NetworkError'))) {
+    throw new Error(`Unable to reach examination server at ${baseUrl || 'backend'}. Please check your connection.`);
+  }
+
+  throw lastError;
 }
 
-// 1. Fetch Published Quizzes Available for Students (class filtered by student session)
+// 1. Fetch Published Quizzes Available for Students (Public & Class Filtered)
 export async function apiGetAvailableQuizzes(studentIdentifier?: string) {
-  const t = Date.now();
-  const qs = studentIdentifier
-    ? `?studentIdentifier=${encodeURIComponent(studentIdentifier)}&_t=${t}`
-    : `?_t=${t}`;
-  return apiRequest(`/api/quizzes/available${qs}`, { cache: 'no-store' });
+  const qs = studentIdentifier ? `?studentIdentifier=${encodeURIComponent(studentIdentifier)}` : '';
+  return apiRequest(`/api/quizzes/available${qs}`);
 }
 
-// 1.1 Fetch Subjects
+// 1.1 Fetch Subjects (Public Cached Data)
 export async function apiGetSubjects() {
   return apiRequest('/api/subjects');
 }
 
-// 1.2 Fetch Active Classes for Student Portal
+// 1.2 Fetch Active Classes for Student Portal (Public Cached Data)
 export async function apiGetClasses() {
   return apiRequest('/api/classes');
 }
+
 
 // 2. Start Quiz: Retrieve Questions & Instructions (Secured by Student Auth)
 export async function apiStartQuiz(quizId: string, studentIdentifier?: string) {
@@ -139,6 +258,8 @@ export async function apiSubmitAttempt(
     className?: string;
     schoolName?: string;
     answers: Record<string, string>;
+    clientExpiredAt?: string;
+    examToken?: string | null;
   }
 ) {
   return apiRequest(`/api/quizzes/${quizId}/attempt`, {
@@ -198,6 +319,9 @@ export async function apiStudentLogin(email: string, pin: string) {
   if (res.token) {
     setStudentToken(res.token);
   }
+  if (res.refreshToken) {
+    setRefreshToken(res.refreshToken);
+  }
   if (res.student) {
     setCachedStudent(res.student);
   }
@@ -232,11 +356,15 @@ export async function apiRegisterStudent(payload: IRegisterStudentPayload) {
   if (res.token) {
     setStudentToken(res.token);
   }
+  if (res.refreshToken) {
+    setRefreshToken(res.refreshToken);
+  }
   if (res.student) {
     setCachedStudent(res.student);
   }
   return res;
 }
+
 
 export async function apiGetMe() {
   const token = getStudentToken();

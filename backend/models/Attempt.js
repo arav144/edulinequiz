@@ -76,9 +76,28 @@ const attemptSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    previousCertificateId: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     submittedAt: {
       type: Date,
       default: Date.now,
+    },
+    receivedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    timingFlag: {
+      type: String,
+      enum: ['verified', 'unverified', 'late'],
+      default: 'verified',
+      index: true,
+    },
+    startedAt: {
+      type: Date,
+      default: null,
     },
   },
   {
@@ -86,8 +105,12 @@ const attemptSchema = new mongoose.Schema(
   }
 );
 
-// STRICT DATABASE-LEVEL UNIQUE CONSTRAINT:
-// Enforces that one student can attempt a specific quiz only ONE time.
+// Database indexes for high-concurrency queries
 attemptSchema.index({ studentId: 1, quizId: 1 }, { unique: true });
+attemptSchema.index({ studentId: 1, submittedAt: -1 });
+attemptSchema.index({ submittedAt: -1 });
+attemptSchema.index({ certificateId: 1 }, { unique: true, sparse: true });
+attemptSchema.index({ studentIdentifier: 1, createdAt: -1 });
 
 module.exports = mongoose.models.Attempt || mongoose.model('Attempt', attemptSchema);
+

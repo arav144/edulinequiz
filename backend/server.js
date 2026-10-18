@@ -4,6 +4,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
+const { generalLimiter } = require('./middleware/rateLimiter');
 
 // Load environment variables
 dotenv.config();
@@ -53,39 +54,29 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Ensure MongoDB is connected BEFORE any route handler runs a query.
-// This is what actually fixes "Cannot call findOne() before initial
-// connection is complete" on serverless platforms like Vercel.
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    res.status(503).json({
-      success: false,
-      message: 'Database connection failed. Please try again shortly.',
-    });
-  }
+// Health Diagnostics Endpoint (Mounted before DB check so monitoring never fails on DB hiccups)
+app.get('/api/health', (req, res) => {
+  const mongoose = require('mongoose');
+  const isDbReady = mongoose.connection.readyState === 1;
+
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.status(200).json({
+    status: isDbReady ? 'healthy' : 'degraded',
+    database: isDbReady ? 'connected' : 'connecting_or_idle',
+    message: 'Quiz System Backend REST API is live and operational.',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    serverless: !!process.env.VERCEL,
+  });
 });
 
-// Serve Admin Panel (static SPA bundled with backend) at root-relative /admin.
-// vercel.json forwards "/admin/*" straight to this service.
+// Serve Admin Panel (static SPA bundled with backend) at root-relative /admin
 app.use('/admin', express.static(path.join(__dirname, 'public', 'admin'), {
   maxAge: 0,
   etag: true,
 }));
 app.get('/admin/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
-});
-
-// Health Diagnostics Endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    message: 'Quiz System Backend REST API is live and operational.',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-  });
 });
 
 // Serve static assets: uploads and images with browser caching
@@ -97,6 +88,26 @@ app.use('/img', express.static(path.join(__dirname, 'public', 'img'), {
   maxAge: '7d',
   etag: true,
 }));
+
+// Apply General Rate Limiter to all /api endpoints
+app.use('/api', generalLimiter);
+
+// Ensure MongoDB is connected BEFORE any dynamic API route handler runs a query
+app.use('/api', async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    res.setHeader('Retry-After', 3);
+    res.status(503).json({
+      success: false,
+      code: 'DB_CONNECTION_FAILED',
+      message: 'Database connection warming up or busy. Please retry in 3 seconds.',
+      retryAfter: 3,
+    });
+  }
+});
+
 
 // Mount Routes
 app.use('/api/auth', require('./routes/authRoutes'));

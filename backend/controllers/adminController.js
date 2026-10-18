@@ -3,6 +3,8 @@ const Question = require('../models/Question');
 const Attempt = require('../models/Attempt');
 const Student = require('../models/Student');
 const Subject = require('../models/Subject');
+const cacheService = require('../services/cacheService');
+
 
 // Helper: Start of today in UTC
 const getStartOfToday = () => {
@@ -28,7 +30,7 @@ const getDashboardStats = async (req, res, next) => {
       totalQuestions,
       totalAttempts,
       todayAttempts,
-      allAttempts,
+      attemptAgg,
     ] = await Promise.all([
       Student.countDocuments(),
       Quiz.countDocuments(),
@@ -38,17 +40,28 @@ const getDashboardStats = async (req, res, next) => {
       Question.countDocuments(),
       Attempt.countDocuments(),
       Attempt.countDocuments({ submittedAt: { $gte: startOfToday } }),
-      Attempt.find({}, 'score totalQuestions percentage result').lean(),
+      Attempt.aggregate([
+        {
+          $group: {
+            _id: null,
+            avgScore: { $avg: '$percentage' },
+            highestScore: { $max: '$percentage' },
+            passCount: {
+              $sum: { $cond: [{ $eq: ['$result', 'Pass'] }, 1, 0] },
+            },
+            total: { $sum: 1 },
+          },
+        },
+      ]),
     ]);
 
-    const avgScore = allAttempts.length
-      ? Math.round(allAttempts.reduce((sum, a) => sum + a.percentage, 0) / allAttempts.length)
-      : 0;
-    const highestScore = allAttempts.length
-      ? Math.max(...allAttempts.map((a) => a.percentage))
-      : 0;
-    const passCount = allAttempts.filter((a) => a.result === 'Pass').length;
-    const passRate = allAttempts.length ? Math.round((passCount / allAttempts.length) * 100) : 0;
+    const statsData = attemptAgg[0] || {};
+    const avgScore = statsData.avgScore ? Math.round(statsData.avgScore) : 0;
+    const highestScore = statsData.highestScore ? Math.round(statsData.highestScore) : 0;
+    const passCount = statsData.passCount || 0;
+    const totalWithScores = statsData.total || 0;
+    const passRate = totalWithScores ? Math.round((passCount / totalWithScores) * 100) : 0;
+
 
     // Recent 10 attempts
     const recentAttempts = await Attempt.find()
@@ -106,19 +119,36 @@ const getAdminQuizzes = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    const quizzesWithCounts = await Promise.all(
-      quizzes.map(async (quiz) => {
-        const questionCount = await Question.countDocuments({ quizId: quiz._id });
-        const attemptCount = await Attempt.countDocuments({ quizId: quiz._id });
-        return {
-          ...quiz,
-          subject: quiz.subjectId ? quiz.subjectId.name : '',
-          questionsAdded: questionCount,
-          attemptCount,
-          isReadyToPublish: questionCount === quiz.numberOfQuestions,
-        };
-      })
-    );
+    const quizIds = quizzes.map((q) => q._id);
+
+    // Batch aggregate question counts and attempt counts (Eliminates N+1 MongoDB roundtrips)
+    const [questionCounts, attemptCounts] = await Promise.all([
+      Question.aggregate([
+        { $match: { quizId: { $in: quizIds } } },
+        { $group: { _id: '$quizId', count: { $sum: 1 } } },
+      ]),
+      Attempt.aggregate([
+        { $match: { quizId: { $in: quizIds } } },
+        { $group: { _id: '$quizId', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const qCountMap = new Map(questionCounts.map((c) => [c._id.toString(), c.count]));
+    const aCountMap = new Map(attemptCounts.map((c) => [c._id.toString(), c.count]));
+
+    const quizzesWithCounts = quizzes.map((quiz) => {
+      const qId = quiz._id.toString();
+      const questionCount = qCountMap.get(qId) || 0;
+      const attemptCount = aCountMap.get(qId) || 0;
+      return {
+        ...quiz,
+        subject: quiz.subjectId ? quiz.subjectId.name : '',
+        questionsAdded: questionCount,
+        attemptCount,
+        isReadyToPublish: questionCount === quiz.numberOfQuestions,
+      };
+    });
+
 
     res.status(200).json({
       success: true,
@@ -1394,9 +1424,37 @@ const deleteStudent = async (req, res, next) => {
     // Delete student document
     await Student.findByIdAndDelete(req.params.id);
 
+    // Invalidate cached student status immediately
+    cacheService.del(`student_status:${req.params.id}`);
+
     res.status(200).json({
       success: true,
       message: `Student "${student.name || student.firstName || 'Student'}" and ${deleteAttemptsResult.deletedCount} associated attempt(s) deleted successfully.`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc  Toggle student blocked / deactivated status
+// @route PATCH /api/admin/students/:id/toggle-block
+const toggleBlockStudent = async (req, res, next) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+
+    student.isBlocked = !student.isBlocked;
+    await student.save();
+
+    // Invalidate cached student status immediately
+    cacheService.del(`student_status:${req.params.id}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Student account ${student.isBlocked ? 'deactivated' : 'reactivated'} successfully.`,
+      isBlocked: student.isBlocked,
     });
   } catch (error) {
     next(error);
@@ -1424,6 +1482,8 @@ module.exports = {
   getAllStudents,
   getStudentById,
   deleteStudent,
+  toggleBlockStudent,
 };
+
 
 

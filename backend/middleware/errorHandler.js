@@ -31,7 +31,24 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  const statusCode = err.statusCode || 500;
+  // MongoDB Atlas Connection & Selection Timeout Protection (503 Service Unavailable)
+  const isMongoTimeout =
+    err.name === 'MongoServerSelectionError' ||
+    err.name === 'MongoTimeoutError' ||
+    err.name === 'MongoNetworkTimeoutError' ||
+    err.name === 'MongooseServerSelectionError' ||
+    (err.message && (err.message.includes('buffering timed out') || err.message.includes('selection timed out')));
+
+  if (isMongoTimeout) {
+    res.setHeader('Retry-After', 3);
+    return res.status(503).json({
+      success: false,
+      code: 'DB_BUSY',
+      message: 'Database is experiencing high volume. Please retry in 3 seconds.',
+      retryAfter: 3,
+    });
+  }
+
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Internal Server Error',

@@ -3,6 +3,7 @@ const fs = require('fs');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const Theme = require('../models/Theme');
+const cacheService = require('../services/cacheService');
 
 // Multer Memory Storage for Theme Assets (Prevents EROFS error on Vercel Serverless)
 const storage = multer.memoryStorage();
@@ -38,17 +39,24 @@ const DEFAULT_THEME = {
 // @route GET /api/theme and /api/admin/theme
 const getTheme = async (req, res, next) => {
   try {
-    let theme = await Theme.findOne({ key: 'default' }).lean();
-    if (!theme) {
-      theme = await Theme.create(DEFAULT_THEME);
-    }
+    // 300-second In-Memory Cache (Theme rarely changes)
+    const theme = await cacheService.getOrSet('app_theme_default', async () => {
+      let doc = await Theme.findOne({ key: 'default' }).lean();
+      if (!doc) {
+        doc = await Theme.create(DEFAULT_THEME);
+      }
+      return doc;
+    }, 300);
+
+    // Public Cache-Control: browser & edge CDN cache for 5 minutes
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
     res.status(200).json({
       success: true,
-      theme,
+      theme: theme || DEFAULT_THEME,
     });
   } catch (error) {
     console.error('Error fetching theme:', error);
-    // Return default theme gracefully even on database hiccups
+    res.setHeader('Cache-Control', 'public, max-age=60');
     res.status(200).json({
       success: true,
       theme: DEFAULT_THEME,
@@ -89,6 +97,9 @@ const updateTheme = async (req, res, next) => {
       { new: true, upsert: true, runValidators: true }
     );
 
+    // Invalidate theme cache immediately
+    cacheService.del('app_theme_default');
+
     res.status(200).json({
       success: true,
       message: 'Theme settings updated successfully',
@@ -98,6 +109,7 @@ const updateTheme = async (req, res, next) => {
     next(error);
   }
 };
+
 
 // ─── Upload Theme Image Asset (Admin Only) ───────────────────────────────────
 // @route POST /api/admin/theme/upload

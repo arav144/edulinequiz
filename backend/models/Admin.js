@@ -12,7 +12,7 @@ const adminSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      default: 'eduline@2026',
+      default: () => process.env.ADMIN_PASSWORD || '',
     },
     role: {
       type: String,

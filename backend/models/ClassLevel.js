@@ -33,4 +33,8 @@ const classLevelSchema = new mongoose.Schema(
   }
 );
 
+// Compound index for sorted active class listings
+classLevelSchema.index({ isActive: 1, order: 1, name: 1 });
+
 module.exports = mongoose.models.ClassLevel || mongoose.model('ClassLevel', classLevelSchema);
+

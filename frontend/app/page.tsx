@@ -26,6 +26,7 @@ import { SocialPlatformsFooter } from '@/components/SocialPlatformsFooter';
 import {
   recordQuizAttempt,
   getSavedAttempt,
+  hasAttemptedQuiz,
   ISavedAttempt,
 } from '@/components/attemptTracker';
 import {
@@ -139,6 +140,8 @@ export default function StudentPortalPage() {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submissionResult, setSubmissionResult] = useState<ISubmissionResult | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
+  const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
+  const [clientExpiredAt, setClientExpiredAt] = useState<string | null>(null);
 
   // ── Theme & Examination Visuals ───────────────────────────────────
   const [theme, setTheme] = useState<IThemeSettings>(DEFAULT_THEME_SETTINGS);
@@ -292,8 +295,43 @@ export default function StudentPortalPage() {
 
   useEffect(() => { loadInitialData(); }, [loadInitialData]);
 
+  // Helper to compute student-scoped storage key for quiz answers
+  const getAnswersKey = (quizId: string, customStudentId?: string) => {
+    const sId = (customStudentId || studentId || cachedProfile?.studentIdentifier || 'default').trim();
+    return `quiz_answers_${sId}_${quizId}`;
+  };
+
+  // Helper to compute student-scoped storage key for signed exam session token
+  const getExamTokenKey = (quizId: string, customStudentId?: string) => {
+    const sId = (customStudentId || studentId || cachedProfile?.studentIdentifier || 'default').trim();
+    return `quiz_token_${sId}_${quizId}`;
+  };
+
+  // Helper to compute student-scoped storage key for exam progress (currentIndex, questionStartedAt, startedAt)
+  const getProgressKey = (quizId: string, customStudentId?: string) => {
+    const sId = (customStudentId || studentId || cachedProfile?.studentIdentifier || 'default').trim();
+    return `quiz_progress_${sId}_${quizId}`;
+  };
+
   // ── Logout ────────────────────────────────────────────────────────
   const handleLogout = () => {
+    // Clear all student quiz answers, session tokens, and progress from localStorage on logout
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (
+          k &&
+          (k.startsWith('quiz_answers_') ||
+            k.startsWith('quiz_token_') ||
+            k.startsWith('quiz_progress_'))
+        ) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch {}
+
     clearStudentToken();
     setCachedProfile(null);
     setStudentName('');
@@ -307,15 +345,28 @@ export default function StudentPortalPage() {
     setAuthModal('signin');
   };
 
-  // ── Quiz timer ────────────────────────────────────────────────────
+  // ── Quiz timer & Question Navigation ──────────────────────────────
   const handleNextQuestion = useCallback(() => {
     if (currentIndexRef.current < totalQuestionsRef.current - 1) {
-      setCurrentIndex((prev) => prev + 1);
+      const nextIdx = currentIndexRef.current + 1;
+      setCurrentIndex(nextIdx);
       setTimeLeft(timePerQuestion);
+
+      if (selectedQuiz) {
+        try {
+          const rollOrId = studentId.trim() || cachedProfile?.studentIdentifier || '01';
+          const pKey = getProgressKey(selectedQuiz._id, rollOrId);
+          const raw = localStorage.getItem(pKey);
+          const progress = raw ? JSON.parse(raw) : {};
+          progress.currentIndex = nextIdx;
+          progress.questionStartedAt = Date.now();
+          localStorage.setItem(pKey, JSON.stringify(progress));
+        } catch {}
+      }
     } else {
       setShowConfirmModal(true);
     }
-  }, [timePerQuestion]);
+  }, [timePerQuestion, selectedQuiz, studentId, cachedProfile]);
 
   useEffect(() => {
     if (phase === 'taking_quiz' && timerActive) {
@@ -328,7 +379,16 @@ export default function StudentPortalPage() {
               return timePerQuestion;
             } else {
               setTimerActive(false);
-              setShowConfirmModal(true);
+              // Disperse submission spikes across a 0 - 40s random jitter window
+              const jitterSeconds = Math.floor(Math.random() * 41);
+              const expiryTimestamp = new Date().toISOString();
+              setClientExpiredAt(expiryTimestamp);
+
+              if (jitterSeconds === 0) {
+                handleConfirmSubmit(expiryTimestamp);
+              } else {
+                setAutoSubmitCountdown(jitterSeconds);
+              }
               return 0;
             }
           }
@@ -340,6 +400,20 @@ export default function StudentPortalPage() {
       if (timerRef.current) clearInterval(timerRef.current);
     }
   }, [phase, timerActive, timePerQuestion, handleNextQuestion]);
+
+  // Handle countdown for timer-expiry auto-submission jitter
+  useEffect(() => {
+    if (autoSubmitCountdown === null) return;
+    if (autoSubmitCountdown <= 0) {
+      setAutoSubmitCountdown(null);
+      handleConfirmSubmit(clientExpiredAt || new Date().toISOString());
+      return;
+    }
+    const timer = setTimeout(() => {
+      setAutoSubmitCountdown((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [autoSubmitCountdown, clientExpiredAt]);
 
   // ── Registration / Edit success callback ─────────────────────────
   const handleRegistrationSuccess = async (profile: IStudentProfile) => {
@@ -426,12 +500,101 @@ export default function StudentPortalPage() {
       const questionList = res.questions || res.data?.questions || [];
       if (res.success && questionList.length > 0) {
         setQuestions(questionList);
-        setCurrentIndex(0);
-        setAnswers({});
+
+        const tokenKey = getExamTokenKey(quiz._id, rollOrId);
+        if (res.examToken) {
+          try {
+            localStorage.setItem(tokenKey, res.examToken);
+          } catch {}
+        }
+
+        // Restore persisted answers ONLY if this attempt has not already been submitted
+        let restoredAnswers: Record<string, 'A' | 'B' | 'C' | 'D'> = {};
+        const isAlreadySubmitted = hasAttemptedQuiz(quiz._id);
+        const storageKey = getAnswersKey(quiz._id, rollOrId);
+        const progressKey = getProgressKey(quiz._id, rollOrId);
+
         const timerSeconds = quiz.timePerQuestion || 40;
+        const totalAllocatedSec = questionList.length * timerSeconds;
+
+        let activeIndex = 0;
+        let activeTimeLeft = timerSeconds;
+        let examStartedAt = res.startedAt ? Number(res.startedAt) : Date.now();
+
+        if (!isAlreadySubmitted) {
+          try {
+            const saved = localStorage.getItem(storageKey);
+            if (saved) {
+              restoredAnswers = JSON.parse(saved);
+            }
+          } catch {}
+
+          // Reload Resume: calculate question index and remaining time from localStorage
+          try {
+            const rawProgress = localStorage.getItem(progressKey);
+            if (rawProgress) {
+              const parsedProgress = JSON.parse(rawProgress);
+              if (parsedProgress && typeof parsedProgress.currentIndex === 'number') {
+                examStartedAt = Number(parsedProgress.startedAt) || examStartedAt;
+                const nowMs = Date.now();
+
+                // Check total exam elapsed time from startedAt
+                const totalElapsedSec = Math.floor((nowMs - examStartedAt) / 1000);
+                if (totalElapsedSec >= totalAllocatedSec) {
+                  // Total exam time completely expired while away -> advance to end
+                  activeIndex = questionList.length - 1;
+                  activeTimeLeft = 0;
+                } else {
+                  // Calculate time remaining on this specific question
+                  const qStartedAt = Number(parsedProgress.questionStartedAt) || nowMs;
+                  const qElapsedSec = Math.floor((nowMs - qStartedAt) / 1000);
+                  const remainingSec = timerSeconds - qElapsedSec;
+
+                  if (remainingSec > 0) {
+                    activeIndex = Math.min(Math.max(0, parsedProgress.currentIndex), questionList.length - 1);
+                    activeTimeLeft = remainingSec;
+                  } else {
+                    // Question timed out while reloading: advance to next
+                    const questionsPassed = Math.floor(qElapsedSec / timerSeconds);
+                    const newIndex = parsedProgress.currentIndex + Math.max(1, questionsPassed);
+                    if (newIndex >= questionList.length) {
+                      activeIndex = questionList.length - 1;
+                      activeTimeLeft = 0;
+                    } else {
+                      activeIndex = newIndex;
+                      const remInNewQ = timerSeconds - (qElapsedSec % timerSeconds);
+                      activeTimeLeft = Math.max(1, remInNewQ);
+                    }
+                  }
+                }
+              }
+            }
+          } catch {}
+        } else {
+          try {
+            localStorage.removeItem(storageKey);
+            localStorage.removeItem(progressKey);
+            localStorage.removeItem(tokenKey);
+          } catch {}
+        }
+
+        // Persist current active question start timestamp & total startedAt
+        try {
+          localStorage.setItem(
+            progressKey,
+            JSON.stringify({
+              startedAt: examStartedAt,
+              currentIndex: activeIndex,
+              questionStartedAt: Date.now() - (timerSeconds - activeTimeLeft) * 1000,
+            })
+          );
+        } catch {}
+
+        setAnswers(restoredAnswers);
+        setCurrentIndex(activeIndex);
         setTimePerQuestion(timerSeconds);
-        setTimeLeft(timerSeconds);
-        setTimerActive(true);
+        setTimeLeft(activeTimeLeft);
+        setTimerActive(activeTimeLeft > 0);
         setPhase('taking_quiz');
       } else if (res.success && questionList.length === 0) {
         setError('No questions are available for this quiz yet. Please check back later.');
@@ -450,33 +613,56 @@ export default function StudentPortalPage() {
     }
   };
 
-  // ── Answer selection ──────────────────────────────────────────────
+  // ── Answer selection (persisted to localStorage per-student) ────────
   const handleSelectAnswer = (questionId: string, optionKey: 'A' | 'B' | 'C' | 'D') => {
-    setAnswers((prev) => ({ ...prev, [questionId]: optionKey }));
+    if (autoSubmitCountdown !== null || submitting) return;
+    setAnswers((prev) => {
+      const next = { ...prev, [questionId]: optionKey };
+      if (selectedQuiz) {
+        try {
+          const rollOrId = studentId.trim() || cachedProfile?.studentIdentifier || '01';
+          localStorage.setItem(getAnswersKey(selectedQuiz._id, rollOrId), JSON.stringify(next));
+        } catch {}
+      }
+      return next;
+    });
   };
 
   // ── Final submission ──────────────────────────────────────────────
-  const handleConfirmSubmit = async () => {
+  const handleConfirmSubmit = async (expiryTimestamp?: string) => {
     if (!selectedQuiz) return;
     try {
+      setAutoSubmitCountdown(null);
       setSubmitting(true);
       setShowConfirmModal(false);
       setIsCreatingCertificate(true);
       setTimerActive(false);
 
       const rollOrId = studentId.trim() || cachedProfile?.studentIdentifier || '01';
+      const effectiveExpiry = expiryTimestamp || clientExpiredAt || new Date().toISOString();
+      const examToken = localStorage.getItem(getExamTokenKey(selectedQuiz._id, rollOrId));
+
       const submitPromise = apiSubmitAttempt(selectedQuiz._id, {
         studentIdentifier: rollOrId,
         name: studentName.trim() || cachedProfile?.fullName || 'Student',
         className: className || cachedProfile?.className,
         schoolName: schoolName.trim() || cachedProfile?.schoolName,
         answers,
+        clientExpiredAt: effectiveExpiry,
+        examToken,
       });
       const delayPromise = new Promise((resolve) => setTimeout(resolve, 2000));
       const [res] = await Promise.all([submitPromise, delayPromise]);
 
       const submissionData = res.data || res.result;
       if (res.success && submissionData) {
+        // Clean up persisted answers, progress, and exam token on successful attempt evaluation
+        try {
+          localStorage.removeItem(getAnswersKey(selectedQuiz._id, rollOrId));
+          localStorage.removeItem(getProgressKey(selectedQuiz._id, rollOrId));
+          localStorage.removeItem(getExamTokenKey(selectedQuiz._id, rollOrId));
+        } catch {}
+
         recordQuizAttempt(selectedQuiz._id, {
           attemptId: submissionData.attemptId,
           studentName: submissionData.studentName || studentName.trim(),
@@ -627,6 +813,7 @@ export default function StudentPortalPage() {
                   quizzes={filteredQuizzes}
                   selectedClassName={className}
                   onSelectQuiz={handleSelectQuizCard}
+                  onQuizOpened={() => loadQuizzes(studentId || cachedProfile?.studentIdentifier)}
                 />
               )}
             </div>
@@ -646,6 +833,17 @@ export default function StudentPortalPage() {
           {/* ── VIEW 3: ACTIVE EXAMINATION ──────────────────── */}
           {phase === 'taking_quiz' && currentQ && (
             <div className="relative w-full">
+              {autoSubmitCountdown !== null && (
+                <div className="max-w-3xl mx-auto mb-4 bg-amber-500/20 border border-amber-500/40 rounded-xl p-3 text-center flex items-center justify-between text-amber-200 text-sm animate-pulse">
+                  <span>⏳ Time is up! Submitting your answers in {autoSubmitCountdown}s...</span>
+                  <button
+                    onClick={() => handleConfirmSubmit()}
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1 rounded-lg text-xs transition"
+                  >
+                    Submit Now
+                  </button>
+                </div>
+              )}
 
               <McqExamination
                 t={selectedQuiz?.language === 'hi' || /हिंदी|गांधी/i.test(selectedQuiz?.name || '') ? TRANSLATIONS.hi : t}
@@ -661,6 +859,8 @@ export default function StudentPortalPage() {
                 onNextQuestion={handleNextQuestion}
                 onRequestSubmit={() => setShowConfirmModal(true)}
                 theme={theme}
+                disabled={autoSubmitCountdown !== null || submitting}
+                autoSubmitCountdown={autoSubmitCountdown}
               />
             </div>
           )}

@@ -10,6 +10,7 @@ interface QuizShowcaseSectionProps {
   selectedClassName?: string;
   lang?: Language;
   onSelectQuiz: (quiz: IQuizSummary) => void;
+  onQuizOpened?: () => void;
 }
 
 type TabType = 'Ongoing' | 'Upcoming' | 'Past' | 'All';
@@ -18,6 +19,7 @@ const QuizShowcaseSectionComponent: React.FC<QuizShowcaseSectionProps> = ({
   quizzes = [],
   selectedClassName,
   onSelectQuiz,
+  onQuizOpened,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('Ongoing');
   const [hasUserChangedTab, setHasUserChangedTab] = useState<boolean>(false);
@@ -137,6 +139,7 @@ const QuizShowcaseSectionComponent: React.FC<QuizShowcaseSectionProps> = ({
                   quiz={quiz}
                   selectedClassName={selectedClassName}
                   onStartQuiz={onSelectQuiz}
+                  onQuizOpened={onQuizOpened}
                 />
               </div>
             ))}

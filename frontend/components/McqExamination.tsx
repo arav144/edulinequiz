@@ -19,6 +19,8 @@ interface McqExaminationProps {
   onNextQuestion: () => void;
   onRequestSubmit: () => void;
   theme?: IThemeSettings;
+  disabled?: boolean;
+  autoSubmitCountdown?: number | null;
 }
 
 const McqExaminationComponent: React.FC<McqExaminationProps> = ({
@@ -34,7 +36,10 @@ const McqExaminationComponent: React.FC<McqExaminationProps> = ({
   onSelectAnswer,
   onNextQuestion,
   onRequestSubmit,
+  disabled = false,
+  autoSubmitCountdown = null,
 }) => {
+  const isInputLocked = disabled || autoSubmitCountdown !== null;
   return (
     <div
       className="rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 md:p-8 max-w-xl sm:max-w-2xl mx-auto w-full text-slate-900 shadow-2xl border border-white/60 relative overflow-hidden select-none space-y-3.5 sm:space-y-5 will-change-transform transform-gpu"
@@ -134,6 +139,18 @@ const McqExaminationComponent: React.FC<McqExaminationProps> = ({
         </div>
       )}
 
+      {/* ─── AUTO-SUBMISSION COUNTDOWN BANNER (when timer expires) ─── */}
+      {autoSubmitCountdown !== null && (
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-xl p-3 text-center animate-pulse shadow-sm">
+          <p className="text-xs sm:text-sm font-black text-rose-800">
+            ⏳ Time Over! Auto-submitting in {autoSubmitCountdown}s...
+          </p>
+          <p className="text-[11px] text-rose-600 font-medium mt-0.5">
+            Answer selection has been locked. Please wait while your submission is finalized.
+          </p>
+        </div>
+      )}
+
       {/* ─── 4 OPTIONS (Clean Compact Capsule Pills with Dashed Outline) ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3.5 max-w-md sm:max-w-lg mx-auto w-full my-2 sm:my-3.5">
         {(['A', 'B', 'C', 'D'] as const).map((key) => {
@@ -144,8 +161,11 @@ const McqExaminationComponent: React.FC<McqExaminationProps> = ({
             <button
               key={key}
               type="button"
-              onClick={() => onSelectAnswer(currentQ._id, key)}
-              className={`group relative flex items-center gap-2 sm:gap-2.5 py-1.5 sm:py-2 px-1.5 sm:px-2 pr-3 sm:pr-4 rounded-full border-[1.5px] border-dashed transition-all duration-150 select-none cursor-pointer text-left w-full min-h-[44px] sm:min-h-[48px] ${
+              disabled={isInputLocked}
+              onClick={() => !isInputLocked && onSelectAnswer(currentQ._id, key)}
+              className={`group relative flex items-center gap-2 sm:gap-2.5 py-1.5 sm:py-2 px-1.5 sm:px-2 pr-3 sm:pr-4 rounded-full border-[1.5px] border-dashed transition-all duration-150 select-none text-left w-full min-h-[44px] sm:min-h-[48px] ${
+                isInputLocked ? 'opacity-65 cursor-not-allowed' : 'cursor-pointer'
+              } ${
                 isSelected
                   ? 'bg-amber-50/95 border-[#1e3a5f] ring-2 ring-[#1e3a5f]/30 shadow-md -translate-y-0.5'
                   : 'bg-white/95 border-[#1e3a5f]/60 hover:border-[#1e3a5f] hover:bg-white hover:-translate-y-0.5 shadow-xs'
@@ -183,8 +203,11 @@ const McqExaminationComponent: React.FC<McqExaminationProps> = ({
         {currentIndex < totalQuestions - 1 ? (
           <button
             type="button"
+            disabled={isInputLocked}
             onClick={onNextQuestion}
-            className="px-10 sm:px-14 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-[#1e3a5f] hover:bg-[#162d4a] text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-md hover:shadow-lg active:translate-y-0.5 transition-all duration-150 cursor-pointer select-none"
+            className={`px-10 sm:px-14 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-[#1e3a5f] hover:bg-[#162d4a] text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-md hover:shadow-lg active:translate-y-0.5 transition-all duration-150 select-none ${
+              isInputLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+            }`}
             style={{
               boxShadow: '0 4px 0 #0f2331, 0 8px 16px rgba(15, 35, 49, 0.25)',
             }}
@@ -194,8 +217,11 @@ const McqExaminationComponent: React.FC<McqExaminationProps> = ({
         ) : (
           <button
             type="button"
+            disabled={isInputLocked}
             onClick={onRequestSubmit}
-            className="px-10 sm:px-14 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-md hover:shadow-lg active:translate-y-0.5 transition-all duration-150 flex items-center gap-1.5 cursor-pointer select-none"
+            className={`px-10 sm:px-14 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-md hover:shadow-lg active:translate-y-0.5 transition-all duration-150 flex items-center gap-1.5 select-none ${
+              isInputLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+            }`}
             style={{
               boxShadow: '0 4px 0 #064e3b, 0 8px 16px rgba(6, 78, 59, 0.25)',
             }}

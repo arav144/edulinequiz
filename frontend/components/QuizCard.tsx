@@ -8,6 +8,7 @@ interface QuizCardProps {
   selectedClassName?: string;
   lang?: any;
   onStartQuiz: (quiz: IQuizSummary) => void;
+  onQuizOpened?: () => void;
 }
 
 function resolveBannerUrl(url?: string): string {
@@ -57,9 +58,55 @@ const STATUS_CONFIG: Record<string, { label: string; dot: boolean; className: st
   Past: { label: 'Concluded', dot: false, className: 'bg-slate-500 text-white' },
 };
 
-const QuizCardComponent: React.FC<QuizCardProps> = ({ quiz, selectedClassName, onStartQuiz }) => {
+const QuizCardComponent: React.FC<QuizCardProps> = ({ quiz, selectedClassName, onStartQuiz, onQuizOpened }) => {
   const scheduleStatus = quiz.scheduleStatus || 'Ongoing';
   const statusCfg = STATUS_CONFIG[scheduleStatus] || STATUS_CONFIG.Ongoing;
+
+  // Local live countdown for Upcoming quizzes (0 network polling)
+  const startMs = React.useMemo(() => {
+    if (scheduleStatus !== 'Upcoming' || !quiz.startDate) return null;
+    const t = safeDate(quiz.startDate).getTime();
+    return isNaN(t) ? null : t;
+  }, [scheduleStatus, quiz.startDate]);
+
+  const [remainingSec, setRemainingSec] = React.useState<number | null>(() => {
+    if (!startMs) return null;
+    return Math.max(0, Math.floor((startMs - Date.now()) / 1000));
+  });
+
+  const hasFiredOpenRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!startMs) return;
+
+    const timer = setInterval(() => {
+      const diffSec = Math.floor((startMs - Date.now()) / 1000);
+      if (diffSec <= 0) {
+        setRemainingSec(0);
+        clearInterval(timer);
+        if (!hasFiredOpenRef.current) {
+          hasFiredOpenRef.current = true;
+          // Trigger exactly ONE single fetch when quiz start time arrives
+          if (onQuizOpened) onQuizOpened();
+        }
+      } else {
+        setRemainingSec(diffSec);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [startMs, onQuizOpened]);
+
+  const countdownDisplay = React.useMemo(() => {
+    if (remainingSec === null || remainingSec <= 0) return null;
+    const h = Math.floor(remainingSec / 3600);
+    const m = Math.floor((remainingSec % 3600) / 60);
+    const s = remainingSec % 60;
+    if (h > 0) {
+      return `${h}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+    }
+    return `${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+  }, [remainingSec]);
 
   const totalQuestions = quiz.numberOfQuestions || 15;
   const totalScore = quiz.totalScore || totalQuestions;
@@ -245,9 +292,15 @@ const QuizCardComponent: React.FC<QuizCardProps> = ({ quiz, selectedClassName, o
             <button
               type="button"
               disabled
-              className="w-full py-2.5 rounded-xl border-2 border-slate-200 text-slate-400 font-bold text-xs cursor-not-allowed"
+              className="w-full py-2.5 rounded-xl border-2 border-slate-200 text-slate-500 font-bold text-xs cursor-not-allowed bg-slate-50 flex items-center justify-center gap-1.5"
             >
-              {scheduleStatus === 'Upcoming' ? 'Not Started Yet' : scheduleStatus === 'Past' ? 'Quiz Closed' : 'Unavailable'}
+              {scheduleStatus === 'Upcoming'
+                ? countdownDisplay
+                  ? `⏳ Opens in ${countdownDisplay}`
+                  : 'Not Started Yet'
+                : scheduleStatus === 'Past'
+                ? 'Quiz Closed'
+                : 'Unavailable'}
             </button>
           )}
         </div>

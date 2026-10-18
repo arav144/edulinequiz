@@ -1,17 +1,21 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const Admin = require('../models/Admin');
 const Student = require('../models/Student');
 const Attempt = require('../models/Attempt');
 const Quiz = require('../models/Quiz');
+const { bcryptQueue } = require('../services/queueService');
+const cacheService = require('../services/cacheService');
+const { getVerifiedStudent } = require('../middleware/authMiddleware');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'quiz_system_super_secure_jwt_secret_2026_x99y';
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || (JWT_SECRET ? JWT_SECRET + '_refresh_v1' : undefined);
 
 // Helper to sync admin credentials from env → MongoDB
 async function syncAdminFromEnv() {
-  const envUsername = (process.env.ADMIN_USERNAME || 'eduline').trim();
-  const envPassword = (process.env.ADMIN_PASSWORD || 'Onisha@11022025').trim();
+  const envUsername = (process.env.ADMIN_USERNAME || 'admin').trim();
+  const envPassword = (process.env.ADMIN_PASSWORD || '').trim();
 
   let admin = await Admin.findOne({ username: envUsername });
   if (admin) {
@@ -268,22 +272,50 @@ const registerStudent = async (req, res, next) => {
       passwordHash: pinHash,
     });
 
-    // 6. Sign JWT token for automatic login
+    // 6. Sign stateless JWT tokens for automatic login (Access 30m + Refresh 30d)
     const token = jwt.sign(
-      { studentId: student._id, email: student.email, class: student.class },
+      {
+        type: 'access',
+        studentId: student._id,
+        email: student.email,
+        class: student.class || student.className,
+        studentIdentifier: student.studentIdentifier,
+        name: student.name,
+      },
       JWT_SECRET,
+      { expiresIn: '30m' }
+    );
+
+    const refreshToken = jwt.sign(
+      {
+        type: 'refresh',
+        studentId: student._id,
+      },
+      JWT_REFRESH_SECRET,
       { expiresIn: '30d' }
     );
+
+    // Cache student status in memory for 60s
+    cacheService.set(`student_status:${student._id}`, {
+      _id: student._id,
+      email: student.email,
+      class: student.class || student.className,
+      studentIdentifier: student.studentIdentifier,
+      name: student.name,
+      isBlocked: false,
+    }, 60);
 
     // Strip sensitive hashes before returning
     const studentObj = student.toObject();
     delete studentObj.pinHash;
     delete studentObj.passwordHash;
 
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     res.status(201).json({
       success: true,
       message: 'Account Created Successfully',
       token,
+      refreshToken,
       student: studentObj,
     });
   } catch (err) {
@@ -306,13 +338,24 @@ const loginStudent = async (req, res, next) => {
       });
     }
 
-    // Check if account exists
-    const student = await Student.findOne({ email: cleanEmail });
+    // STRICT 1 DB READ: Lean query with only essential projection fields
+    const student = await Student.findOne({ email: cleanEmail })
+      .select('_id email class className name firstName lastName studentIdentifier mobileNumber schoolName pinHash passwordHash isBlocked')
+      .lean();
+
     if (!student) {
       return res.status(404).json({
         success: false,
         errorCode: 'ACCOUNT_NOT_FOUND',
         message: 'Account Not Found. Please register first to continue.',
+      });
+    }
+
+    if (student.isBlocked === true) {
+      return res.status(403).json({
+        success: false,
+        errorCode: 'ACCOUNT_BLOCKED',
+        message: 'Your account has been deactivated. Please contact support.',
       });
     }
 
@@ -326,7 +369,9 @@ const loginStudent = async (req, res, next) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(userPin, storedHash);
+    // CPU / Threadpool Protection: Process bcrypt comparison through concurrency queue
+    // (Prevents 800 simultaneous bcrypt calls from choking the Node event loop)
+    const isMatch = await bcryptQueue.run(() => bcrypt.compare(userPin, storedHash));
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -335,27 +380,133 @@ const loginStudent = async (req, res, next) => {
       });
     }
 
-    // Authentication successful — generate session token
+    // Authentication successful — generate short-lived access token + long-lived refresh token
     const token = jwt.sign(
-      { studentId: student._id, email: student.email, class: student.class },
+      {
+        type: 'access',
+        studentId: student._id,
+        email: student.email,
+        class: student.class || student.className,
+        studentIdentifier: student.studentIdentifier,
+        name: student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+      },
       JWT_SECRET,
-      { expiresIn: '30d' }
+      { expiresIn: '30m' } // 30 minutes short-lived
     );
 
-    const studentObj = student.toObject();
+    const refreshToken = jwt.sign(
+      {
+        type: 'refresh',
+        studentId: student._id,
+      },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '30d' } // 30 days refresh token
+    );
+
+    // Cache verified student status in memory for 60s
+    cacheService.set(`student_status:${student._id}`, {
+      _id: student._id,
+      email: student.email,
+      class: student.class || student.className,
+      studentIdentifier: student.studentIdentifier,
+      name: student.name,
+      isBlocked: false,
+    }, 60);
+
+    const studentObj = { ...student };
     delete studentObj.pinHash;
     delete studentObj.passwordHash;
 
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     return res.status(200).json({
       success: true,
       message: 'Sign in successful!',
       token,
+      refreshToken,
       student: studentObj,
     });
   } catch (err) {
     next(err);
   }
 };
+
+// @desc    Refresh student access token using refresh token
+// @route   POST /api/auth/refresh-token
+const refreshStudentToken = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, message: 'Refresh token is required.' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    } catch (tokenErr) {
+      // Backward compatibility: If token was signed with older JWT_SECRET
+      try {
+        decoded = jwt.verify(refreshToken, JWT_SECRET);
+      } catch (legacyErr) {
+        return res.status(401).json({
+          success: false,
+          code: 'INVALID_REFRESH_TOKEN',
+          message: 'Refresh token expired or invalid. Please sign in again.',
+        });
+      }
+    }
+
+    // STRICT TYPE CLAIM VERIFICATION: Refresh tokens cannot be access tokens
+    if (decoded.type && decoded.type !== 'refresh') {
+      return res.status(401).json({
+        success: false,
+        code: 'INVALID_TOKEN_TYPE',
+        message: 'Invalid token type. Access tokens cannot be used to refresh sessions.',
+      });
+    }
+
+    // Ensure student account is still active and not deleted/blocked (cached for 60s)
+    const student = await getVerifiedStudent(decoded.studentId);
+    if (!student || student.isBlocked === true) {
+      return res.status(403).json({
+        success: false,
+        code: 'ACCOUNT_DEACTIVATED',
+        message: 'Account deactivated or deleted.',
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        type: 'access',
+        studentId: student._id,
+        email: student.email,
+        class: student.class || student.className,
+        studentIdentifier: student.studentIdentifier,
+        name: student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+      },
+      JWT_SECRET,
+      { expiresIn: '30m' }
+    );
+
+    const newRefreshToken = jwt.sign(
+      {
+        type: 'refresh',
+        studentId: student._id,
+      },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    return res.status(200).json({
+      success: true,
+      token,
+      refreshToken: newRefreshToken,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 // @desc    Get authenticated student profile
 // @route   GET /api/auth/me
@@ -450,6 +601,9 @@ const updateStudentProfile = async (req, res, next) => {
 
     await student.save();
 
+    // Invalidate cached student status immediately
+    cacheService.del(`student_status:${student._id}`);
+
     // Also update existing attempts with the new name and school/class if changed
     try {
       await Attempt.updateMany(
@@ -470,6 +624,7 @@ const updateStudentProfile = async (req, res, next) => {
     delete studentObj.pinHash;
     delete studentObj.passwordHash;
 
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
@@ -487,7 +642,9 @@ module.exports = {
   registerStudent,
   checkStudentEmail,
   loginStudent,
+  refreshStudentToken,
   getStudentProfile,
   getMyAttempts,
   updateStudentProfile,
 };
+
