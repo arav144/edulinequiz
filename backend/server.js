@@ -12,6 +12,9 @@ dotenv.config();
 // Initialize Express App
 const app = express();
 
+// Trust reverse proxy (Vercel edge routers) for correct client IP detection
+app.set('trust proxy', 1);
+
 // Configure CORS
 const allowedOrigins = [
   process.env.FRONTEND_URL,

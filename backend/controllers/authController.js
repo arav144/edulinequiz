@@ -595,8 +595,14 @@ const updateStudentProfile = async (req, res, next) => {
     if (state) student.state = state;
     if (address !== undefined) student.address = address.trim();
     if (pinCode) student.pinCode = pinCode.trim();
-    if (previousQuizParticipation || participatedEarlier) {
-      student.previousQuizParticipation = previousQuizParticipation || participatedEarlier;
+    if (previousQuizParticipation !== undefined || participatedEarlier !== undefined) {
+      const rawPart = previousQuizParticipation !== undefined ? previousQuizParticipation : participatedEarlier;
+      const isYes = rawPart === true || String(rawPart).toLowerCase() === 'yes' || String(rawPart).toLowerCase() === 'true';
+      const isNo = rawPart === false || String(rawPart).toLowerCase() === 'no' || String(rawPart).toLowerCase() === 'false';
+      if (isYes || isNo) {
+        student.previousQuizParticipation = isYes ? 'Yes' : 'No';
+        student.participatedEarlier = isYes ? 'Yes' : 'No';
+      }
     }
 
     await student.save();

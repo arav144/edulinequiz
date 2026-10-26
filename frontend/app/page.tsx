@@ -232,7 +232,7 @@ export default function StudentPortalPage() {
           state: cached.state,
           address: cached.address,
           pinCode: cached.pinCode,
-          participatedEarlier: cached.previousQuizParticipation ? 'Yes' : 'No',
+          participatedEarlier: cached.previousQuizParticipation === 'Yes' || cached.participatedEarlier === 'Yes' ? 'Yes' : 'No',
           previousQuizParticipation: cached.previousQuizParticipation,
           studentIdentifier: cached.studentIdentifier,
           isVerifiedEmail: true,
@@ -271,7 +271,7 @@ export default function StudentPortalPage() {
               state: s.state,
               address: s.address,
               pinCode: s.pinCode,
-              participatedEarlier: s.previousQuizParticipation ? 'Yes' : 'No',
+              participatedEarlier: s.previousQuizParticipation === 'Yes' || s.participatedEarlier === 'Yes' ? 'Yes' : 'No',
               previousQuizParticipation: s.previousQuizParticipation,
               studentIdentifier: s.studentIdentifier,
               isVerifiedEmail: true,
@@ -639,7 +639,12 @@ export default function StudentPortalPage() {
       setTimerActive(false);
 
       const rollOrId = studentId.trim() || cachedProfile?.studentIdentifier || '01';
-      const effectiveExpiry = expiryTimestamp || clientExpiredAt || new Date().toISOString();
+      const effectiveExpiry =
+        typeof expiryTimestamp === 'string' && expiryTimestamp.trim()
+          ? expiryTimestamp.trim()
+          : typeof clientExpiredAt === 'string' && clientExpiredAt.trim()
+          ? clientExpiredAt.trim()
+          : new Date().toISOString();
       const examToken = localStorage.getItem(getExamTokenKey(selectedQuiz._id, rollOrId));
 
       const submitPromise = apiSubmitAttempt(selectedQuiz._id, {
@@ -921,7 +926,7 @@ export default function StudentPortalPage() {
         {/* ── INSTRUCTIONS / CONTACT / CONFIRM MODALS ──────── */}
         <InstructionsModal isOpen={showInstructionsModal} onClose={() => setShowInstructionsModal(false)} quiz={selectedQuiz || (quizzes.length > 0 ? quizzes[0] : null)} classNameVal={className} lang="en" />
         <ContactModal isOpen={showContactModal} onClose={() => setShowContactModal(false)} quiz={selectedQuiz || (quizzes.length > 0 ? quizzes[0] : null)} lang="en" />
-        <ConfirmSubmitModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={handleConfirmSubmit} answeredCount={answeredCount} totalQuestions={totalQuestions} submitting={submitting} lang="en" />
+        <ConfirmSubmitModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={() => handleConfirmSubmit()} answeredCount={answeredCount} totalQuestions={totalQuestions} submitting={submitting} lang="en" />
 
         {/* ── STUDENT REGISTRATION / SIGN-IN MODAL ─────────── */}
         <StudentRegistrationModal

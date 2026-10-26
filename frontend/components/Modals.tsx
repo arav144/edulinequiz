@@ -297,7 +297,7 @@ export const ConfirmSubmitModal: React.FC<ConfirmSubmitModalProps> = ({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => onConfirm()}
             disabled={submitting}
             className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition flex items-center gap-1.5"
           >

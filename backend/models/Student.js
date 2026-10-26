@@ -95,12 +95,22 @@ const studentSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Previous quiz participation response is required'],
       enum: ['Yes', 'No'],
+      set: (v) => {
+        if (v === true || String(v).toLowerCase() === 'true' || String(v).toLowerCase() === 'yes') return 'Yes';
+        if (v === false || String(v).toLowerCase() === 'false' || String(v).toLowerCase() === 'no') return 'No';
+        return v;
+      },
     },
     // participatedEarlier compatibility alias
     participatedEarlier: {
       type: String,
       enum: ['Yes', 'No', ''],
       default: '',
+      set: (v) => {
+        if (v === true || String(v).toLowerCase() === 'true' || String(v).toLowerCase() === 'yes') return 'Yes';
+        if (v === false || String(v).toLowerCase() === 'false' || String(v).toLowerCase() === 'no') return 'No';
+        return v;
+      },
     },
     section: {
       type: String,

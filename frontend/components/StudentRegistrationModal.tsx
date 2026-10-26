@@ -313,8 +313,8 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
           state: stateVal,
           address: address.trim(),
           pinCode: cleanPinCode,
-          previousQuizParticipation: participatedEarlier === 'Yes',
-          participatedEarlier,
+          previousQuizParticipation: participatedEarlier === 'Yes' ? 'Yes' : 'No',
+          participatedEarlier: participatedEarlier === 'Yes' ? 'Yes' : 'No',
         };
 
         const res = await apiUpdateProfile(payload);
@@ -344,8 +344,8 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
           state: stateVal,
           address: address.trim(),
           pinCode: cleanPinCode,
-          previousQuizParticipation: participatedEarlier === 'Yes',
-          participatedEarlier,
+          previousQuizParticipation: participatedEarlier === 'Yes' ? 'Yes' : 'No',
+          participatedEarlier: participatedEarlier === 'Yes' ? 'Yes' : 'No',
         };
 
         const res = await apiRegisterStudent(payload);

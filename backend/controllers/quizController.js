@@ -28,7 +28,7 @@ async function resolveStudent(req) {
 
   if (rawIdentifier && typeof rawIdentifier === 'string') {
     const cleanId = rawIdentifier.trim().toUpperCase();
-    return cacheService.getOrSet(
+    const student = await cacheService.getOrSet(
       `student_identity_${cleanId}`,
       async () => {
         return Student.findOne({
@@ -42,6 +42,10 @@ async function resolveStudent(req) {
       },
       600 // 10 minutes cache
     );
+    if (student) {
+      req.student = student;
+    }
+    return student;
   }
 
   return null;
@@ -583,11 +587,13 @@ const startQuiz = async (req, res, next) => {
 // @desc    Submit student answers, evaluate score server-side, save attempt
 // @route   POST /api/quizzes/:id/attempt
 const submitQuizAttempt = async (req, res, next) => {
+  let student;
+  let targetQuiz;
   try {
     const { id: quizId } = req.params;
     const { answers = {}, clientExpiredAt, examToken } = req.body;
 
-    const student = await resolveStudent(req);
+    student = await resolveStudent(req);
     if (!student) {
       return res.status(401).json({
         success: false,
@@ -599,7 +605,7 @@ const submitQuizAttempt = async (req, res, next) => {
     const studentClass = (student.class || student.className || '').trim();
     const classNum = studentClass.replace(/\D/g, '');
 
-    const targetQuiz = await cacheService.getOrSet(
+    targetQuiz = await cacheService.getOrSet(
       `quiz_meta_${quizId}_${studentClass}`,
       async () => {
         const quiz = await Quiz.findById(quizId).populate('subjectId', 'name').lean();
@@ -829,9 +835,11 @@ const submitQuizAttempt = async (req, res, next) => {
   } catch (error) {
     // Idempotent submission: on duplicate E11000, return existing attempt result as success
     if (error.code === 11000 && !error.message?.includes('certificateId') && !error.keyPattern?.certificateId) {
+      const studentId = student?._id || req.student?._id;
+      const targetQuizIds = [targetQuiz?._id, req.params.id].filter(Boolean);
       const existing = await Attempt.findOne({
-        studentId: req.student?._id,
-        quizId: req.params.id,
+        ...(studentId ? { studentId } : {}),
+        quizId: { $in: targetQuizIds },
       }).lean();
 
       if (existing) {
@@ -846,8 +854,8 @@ const submitQuizAttempt = async (req, res, next) => {
           certificateId: existing.certificateId,
           submittedAt: existing.submittedAt,
           studentName: existing.studentName,
-          quizName: 'Quiz',
-          subject: 'General',
+          quizName: targetQuiz?.name || 'Quiz',
+          subject: targetQuiz?.subjectId?.name || 'General',
           alreadyAttempted: true,
         };
 

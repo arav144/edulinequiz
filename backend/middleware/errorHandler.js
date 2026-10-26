@@ -49,9 +49,11 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
+  const statusCode = err.status || err.statusCode || (res.statusCode >= 400 ? res.statusCode : 500);
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Internal Server Error',
+    code: err.code || (statusCode === 403 ? 'FORBIDDEN' : statusCode === 401 ? 'UNAUTHORIZED' : 'SERVER_ERROR'),
     ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {}),
   });
 };

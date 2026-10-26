@@ -7,6 +7,17 @@ const Quiz = require('../models/Quiz');
 const Student = require('../models/Student');
 const Subject = require('../models/Subject');
 
+// Pre-cache certificate frame buffer in memory to eliminate repeated disk I/O on 500+ bursts
+const framePath = path.join(__dirname, '../assets/certificate_framepdf.jpg');
+let cachedFrameBuffer = null;
+try {
+  if (fs.existsSync(framePath)) {
+    cachedFrameBuffer = fs.readFileSync(framePath);
+  }
+} catch (e) {
+  console.warn('Could not preload certificate frame buffer:', e.message);
+}
+
 function toImageSource(filePath) {
   if (fs.existsSync(filePath)) {
     const ext = path.extname(filePath).toLowerCase();
@@ -17,7 +28,7 @@ function toImageSource(filePath) {
   return null;
 }
 
-async function resolveAttempt(attemptId, studentIdentifier) {
+async function resolveAttempt(attemptId, studentIdentifier, req = null) {
   let attempt = null;
   if (attemptId && mongoose.Types.ObjectId.isValid(attemptId)) {
     attempt = await Attempt.findById(attemptId).lean();
@@ -32,6 +43,25 @@ async function resolveAttempt(attemptId, studentIdentifier) {
     attempt = await Attempt.findOne({ studentIdentifier: attemptId }).sort({ createdAt: -1 }).lean();
   }
   if (!attempt) return null;
+
+  // Ownership verification: prevent cross-student result tampering
+  const isAdmin = req?.query?.adminDownload === 'true' || req?.user?.role === 'admin';
+  if (!isAdmin) {
+    if (studentIdentifier && attempt.studentIdentifier) {
+      if (studentIdentifier.trim().toUpperCase() !== attempt.studentIdentifier.trim().toUpperCase()) {
+        const err = new Error('Unauthorized: You are not authorized to view another student’s result.');
+        err.status = 403;
+        throw err;
+      }
+    }
+    if (req?.student?._id && attempt.studentId) {
+      if (String(req.student._id) !== String(attempt.studentId)) {
+        const err = new Error('Unauthorized: You are not authorized to view another student’s result.');
+        err.status = 403;
+        throw err;
+      }
+    }
+  }
 
   const quiz = attempt.quizId ? await Quiz.findById(attempt.quizId).populate('subjectId', 'name').lean() : null;
   const student = attempt.studentId ? await Student.findById(attempt.studentId).lean() : null;
@@ -63,7 +93,7 @@ const getResult = async (req, res, next) => {
   try {
     const { attemptId } = req.params;
     const studentIdentifier = req.query.studentIdentifier;
-    const data = await resolveAttempt(attemptId, studentIdentifier);
+    const data = await resolveAttempt(attemptId, studentIdentifier, req);
     if (!data) {
       return res.status(404).json({ success: false, message: 'Result not found.' });
     }
@@ -105,7 +135,7 @@ const downloadResultPdf = async (req, res, next) => {
   try {
     const { attemptId } = req.params;
     const studentIdentifier = req.query.studentIdentifier;
-    const data = await resolveAttempt(attemptId, studentIdentifier);
+    const data = await resolveAttempt(attemptId, studentIdentifier, req);
     if (!data) return res.status(404).json({ success: false, message: 'Result not found.' });
 
     const { attempt, quiz, student } = data;
@@ -247,7 +277,7 @@ const downloadCertificatePdf = async (req, res, next) => {
   try {
     const { attemptId } = req.params;
     const studentIdentifier = req.query.studentIdentifier;
-    const data = await resolveAttempt(attemptId, studentIdentifier);
+    const data = await resolveAttempt(attemptId, studentIdentifier, req);
     if (!data) return res.status(404).json({ success: false, message: 'Result not found.' });
 
     const { attempt, quiz, student } = data;
@@ -271,12 +301,10 @@ const downloadCertificatePdf = async (req, res, next) => {
     const W = doc.page.width;  // 841.89 pt
     const H = doc.page.height; // 595.28 pt
 
-    // 1. Draw Official Certificate Template Frame as Background
-    const framePath = fs.existsSync(path.join(__dirname, '../assets/certificate_framepdf.jpg'))
-      ? path.join(__dirname, '../assets/certificate_framepdf.jpg')
-      : path.join(__dirname, '../assets/certificate_framepdf.jpeg');
-
-    if (fs.existsSync(framePath)) {
+    // 1. Draw Official Certificate Template Frame as Background (uses in-memory buffer)
+    if (cachedFrameBuffer) {
+      doc.image(cachedFrameBuffer, 0, 0, { width: W, height: H });
+    } else if (fs.existsSync(framePath)) {
       doc.image(framePath, 0, 0, { width: W, height: H });
     } else {
       // Fallback clean border

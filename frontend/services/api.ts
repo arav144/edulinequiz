@@ -262,9 +262,16 @@ export async function apiSubmitAttempt(
     examToken?: string | null;
   }
 ) {
+  const safePayload = {
+    ...payload,
+    clientExpiredAt:
+      typeof payload.clientExpiredAt === 'string' && payload.clientExpiredAt.trim()
+        ? payload.clientExpiredAt.trim()
+        : new Date().toISOString(),
+  };
   return apiRequest(`/api/quizzes/${quizId}/attempt`, {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(safePayload),
   });
 }
 
