@@ -262,13 +262,45 @@ export async function apiSubmitAttempt(
     examToken?: string | null;
   }
 ) {
+  // Deep-sanitize answers to pure string primitives to prevent any DOM/React Fiber circularity
+  const cleanAnswers: Record<string, string> = {};
+  if (payload.answers && typeof payload.answers === 'object') {
+    for (const [k, v] of Object.entries(payload.answers)) {
+      if (typeof v === 'string') {
+        cleanAnswers[String(k)] = v.trim().toUpperCase();
+      }
+    }
+  }
+
+  // Construct safe payload with strictly validated primitive strings only
   const safePayload = {
-    ...payload,
+    studentIdentifier:
+      typeof payload.studentIdentifier === 'string' && payload.studentIdentifier.trim()
+        ? payload.studentIdentifier.trim()
+        : '01',
+    name:
+      typeof payload.name === 'string' && payload.name.trim()
+        ? payload.name.trim()
+        : 'Student',
+    className:
+      typeof payload.className === 'string' && payload.className.trim()
+        ? payload.className.trim()
+        : '',
+    schoolName:
+      typeof payload.schoolName === 'string' && payload.schoolName.trim()
+        ? payload.schoolName.trim()
+        : '',
+    answers: cleanAnswers,
     clientExpiredAt:
       typeof payload.clientExpiredAt === 'string' && payload.clientExpiredAt.trim()
         ? payload.clientExpiredAt.trim()
         : new Date().toISOString(),
+    examToken:
+      typeof payload.examToken === 'string' && payload.examToken.trim()
+        ? payload.examToken.trim()
+        : null,
   };
+
   return apiRequest(`/api/quizzes/${quizId}/attempt`, {
     method: 'POST',
     body: JSON.stringify(safePayload),
